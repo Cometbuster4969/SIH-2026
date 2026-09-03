@@ -1,0 +1,10 @@
+-r requirements.txt
+fastapi>=0.110
+uvicorn>=0.29
+streamlit>=1.33
+pillow>=10.0
+# GPU inference (4050 laptop; CPU works via --device cpu path):
+# torch torchvision --index-url https://download.pytorch.org/whl/cu121
+configilm>=0.7
+safetensors
+huggingface-hub

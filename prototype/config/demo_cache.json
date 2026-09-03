@@ -1,0 +1,47 @@
+{
+  "landcover": {
+    "demo_scene_01": {
+      "answer": "Land cover: Arable land, Pastures, Mixed forest (top score 0.91). Cached demo answer from BIFOLD resnet50-all-v0.2.0.",
+      "confidence": 0.91,
+      "labels": [
+        {"label": "Arable land", "score": 0.91},
+        {"label": "Pastures", "score": 0.74},
+        {"label": "Mixed forest", "score": 0.62}
+      ]
+    },
+    "demo_scene_02": {
+      "answer": "Land cover: Urban fabric, Industrial or commercial units, Arable land (top score 0.88). Cached demo answer from BIFOLD resnet50-all-v0.2.0.",
+      "confidence": 0.88,
+      "labels": [
+        {"label": "Urban fabric", "score": 0.88},
+        {"label": "Industrial or commercial units", "score": 0.71},
+        {"label": "Arable land", "score": 0.44}
+      ]
+    }
+  },
+  "change": {
+    "demo_pair_01": {
+      "answer": "Heuristic NDVI differencing on the cached demo pair: ~6.4% of pixels changed — new built-up footprint in the north-east quadrant. (Trained BiT M4 replaces this for 20 Sep.)",
+      "confidence": null,
+      "extra": {"change_pct": 6.4, "method": "ndvi_diff"}
+    }
+  },
+  "ground": {
+    "demo_scene_01": {
+      "answer": "Heuristic location for 'the water body': box [96, 140, 156, 200] (pixel coords). Grounding-DINO-T (M3) replaces this in Window B.",
+      "bbox": [96, 140, 156, 200]
+    }
+  },
+  "vqa": {
+    "demo_scene_01": {
+      "answer": "Yes — the cached demo scene contains a water body (reservoir, south-west).",
+      "confidence": 0.9
+    }
+  },
+  "xmodal": {
+    "demo_pair_sar_opt_01": {
+      "answer": "Cross-modal read: optical is cloud-covered over the western third; SAR (VV/VH) shows a linear drainage channel and field boundaries beneath. Land-cover labels (trained): Arable land, Pastures.",
+      "confidence": 0.8
+    }
+  }
+}
