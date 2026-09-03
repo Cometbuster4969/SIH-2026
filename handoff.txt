@@ -1,0 +1,222 @@
+================================================================================
+SATQUERY AI - SIH 2026 PS 26167 - SESSION HANDOFF
+Generated 3 Sep 2026. Paste this into a new chat to continue.
+================================================================================
+## CONTEXT
+Repo: Cometbuster4969/SIH-2026 (branch arena/01a066e5-sih-2026)
+Problem Statement: SIH 2026 PS 26167 (ISRO) - "SatQuery AI: An Interactive
+Vision-Language Assistant for Multimodal Remote Sensing Image Analysis
+through Text Queries"
+Team: 5 people. Budget: Rs 0 cash.
+Hardware: laptop i5-13500H + RTX 4050 Laptop 6 GB VRAM (assume 16 GB RAM)
+          + 5 TB cloud storage. Free Kaggle (~30 GPU-h/wk, P100/T4 16 GB)
+          + Colab free. 5 accounts = ~150 GPU-h/wk pooled.
+## TWO DEADLINES
+WINDOW A - 5 Sep 10:00 (~46 h from 3 Sep). GRADED ARTIFACT = THE PPT.
+           Working prototype = BONUS points only.
+WINDOW B - 20 Sep. GRADED = PPT + code + models + test + demonstration.
+           Hard deliverable, not optional follow-on work.
+## FIRST ACTION NEEDED IN THE NEW SESSION
+One local commit is UNPUSHED (previous session closed when its PR merged):
+  f522f61  docs: adopt BIFOLD BE v2.0 pretrained backbones (30 checkpoints)
+Push it:  git push origin arena/01a066e5-sih-2026
+## REPO STATE
+On main (PR #1 merged, commit 25eab1d):
+  ps-26167.md                 <- OFFICIAL PS, SOURCE OF TRUTH (clauses P1-P15, gaps G1-G5)
+  architecture.md             <- system design, model triage, SAR pipeline, ablation
+  design.md                   <- UI/API/report/schemas, abstention UX
+  checkpoints.md              <- compliance matrix, 2-window schedule, team roles, risks
+  budget.md                   <- Rs 0 build/deploy plan for the actual hardware
+  proposedidea.md             <- scope decisions
+  satquery-ai-architecture.md <- PS rating + dataset facts
+  + 2 workspace-*.zip (~68 MB binary; consider moving to cloud + .gitignore)
+Doc precedence: ps-26167.md > budget.md (for hardware/deploy) > architecture.md
+================================================================================
+## KEY DECISIONS ALREADY MADE (do not re-litigate)
+================================================================================
+PRIORITY (from PS verbatim): "Single-image understanding is a mandatory
+BASELINE, while the PRINCIPAL FOCUS is joint reasoning over paired cross-modal
+and multitemporal imagery." => paired work (change + optical-SAR) outranks
+single-image polish.
+PS P10: "only the observable execution trace ... will be evaluated. Internal
+reasoning text is neither required nor evaluated." => a deterministic
+RuleRouter scores IDENTICALLY to an LLM planner. Do not surface chain-of-thought.
+This makes RuleRouter-only fully sufficient for the Window A prototype.
+PS P12: "A generic LLM or VLM without remote-sensing adaptation will not
+satisfy the requirements." => the RS-graded path must run OUR weights on OUR
+GPU. Never a hosted generic API.
+MODEL TRIAGE (binding - 3 trained models, not 7):
+  M1  Qwen2-VL-2B QLoRA 4-bit  -> TRAIN on Kaggle 16 GB (won't fit 6 GB).
+                                  Critical path. THE compliance artifact for A1.1.
+  M4  BiT change detection      -> TRAIN locally on 4050 (LEVIR-CD/WHU-CD + CDVQA)
+  M3  Grounding-DINO-T          -> TRAIN locally if it fits ~5.2 GB, else Kaggle
+  M7  Dual UNet++ per-pixel     -> TRAIN locally on 4050, BE v2.0 pretrained encoder
+  M5  change-VQA                -> NOT a separate run. It IS M1 in 2-image mode.
+  M2  planner                   -> NOT trained. RuleRouter primary.
+  M6  dual-tower fusion         -> CUT. Cross-modal served by M1 2-image + M7 + ablation.
+Weight the M1 training mix toward 2-IMAGE samples (BE.txt S1-S2 triplets, CDVQA,
+TAMMI) and gate M1 on PAIRED-task metrics, per the PS priority statement.
+================================================================================
+## VERIFIED FACTS (checked against primary sources 3 Sep 2026)
+================================================================================
+BigEarthNet.txt (HF: BIFOLD-BigEarthNetv2-0/BigEarthNet.txt)
+  - SINGLE PARQUET FILE, 467 MB, all 9.55M annotation rows
+  - License CDLA-Permissive-1.0 (NOT CC-BY as older notes said)
+  - TEXT ONLY. References imagery by patch_id / s1_name.
+  - Columns: ID, s1_name, patch_id, input, output, type, category, split,
+    latitude, longitude, country, season, climate_zone
+  - Ships ben_txt_datamodule.py + example_data_loading.py -> use their loader
+BigEarthNet v2.0 imagery (Zenodo 10891137) = 118 GB total
+  - BigEarthNet-S1.tar.zst 54.4 GB | BigEarthNet-S2.tar.zst 63.3 GB
+  - Reference_Maps.tar.zst 282 MB  <- PIXEL-LEVEL maps, CLC2018-derived
+  - IMPORTANT: BE v2 DOES have per-pixel masks. An earlier claim that it is
+    "patch-level only" was WRONG and has been retracted. M7 per-pixel is valid.
+    Only the mIoU >= 0.80 gate was unjustified -> now >=0.60 pass / >=0.70 good,
+    report per-class IoU separately (water will beat built-up).
+BIFOLD-BigEarthNetv2-0 PRETRAINED WEIGHTS - 30 checkpoints, big free win
+  - 10 architectures x 3 modality variants (S1-only / S2-only / S1+S2)
+  - resnet18/50/101, convnextv2_base, vit_base_patch8_224, convmixer_768_32,
+    mixer_b16_224, mobilevit_s, rdnet_base, inception_next_base
+  - resnet50-all-v0.2.0: mAP macro 0.7107 / micro 0.8593, 23.6M params
+  - FOUR USES, ZERO GPU COST:
+      1. S1/S2/S1+S2 checkpoints ARE the optical/SAR/fused ablation with REAL
+         numbers - unblocks that panel for 5 Sep without training anything
+      2. a genuinely trained 19-class land-cover tool in the Window A prototype
+      3. RS-pretrained encoder init for M7 (better than ImageNet)
+      4. dual-modality encoder already trained on co-registered S1+S2
+  - CONSTRAINTS:
+      * band order is VERSION-CRITICAL. v0.2.0 = [VV, VH, B02, B03, B04, B05,
+        B06, B07, B08, B8A, B11, B12]. v0.1.1 differs and is INCOMPATIBLE.
+        Wrong order = confident garbage, no error. Pin v0.2.0, assert in ingest.
+      * patch-level multi-label, NOT segmentation
+      * needs `pip install configilm` + reben_publication code from
+        git.tu-berlin.de/rsim/reben-training-scripts (not plain AutoModel)
+      * trained 120x120 px @10 m Sentinel; hidden set is ~1 m Cartosat -> domain
+        gap remains
+      * TODO: verify individual weight licenses before submission (checkpoints 0.11)
+  - PS CAUTION: A1.1 requires adaptation BY US. These are a BACKBONE, not our
+    adaptation. M1 LoRA remains the compliance artifact. Say so on the slide.
+HOSTED SERVICES - evaluated, verdicts recorded in budget.md 6.2b
+  - HF Spaces free CPU (2 vCPU/16 GB, unmetered): USE for a public light-path link
+  - HF ZeroGPU: CANNOT USE - creating a ZeroGPU Space requires PRO; free accounts
+    may only consume others'; free quota ~5 GPU-min/day anyway
+  - OpenRouter: REJECTED for the graded path - (1) cannot host our fine-tuned
+    adapter => fails PS P12, (2) 50 req/day free tier is demo-hostile,
+    (3) free routes require prompt logging/training + breaks offline guarantee
+    (unacceptable with an ISRO hidden eval set)
+PS GAPS (in the OFFICIAL text, not our copy)
+  - Evaluation/Judging Criteria table is a literal placeholder: "Add table here".
+    Metric names and weights are genuinely unpublished. Do not block on it.
+  - Dataset Link section truncated mid-sentence at "VRSBench - for".
+  - PS gives NO verbatim single-image VQA query although VQA is the mandatory
+    baseline. Supply your own, e.g. "Is there a water body in this image?"
+================================================================================
+## TONIGHT (3 Sep) - ~20 MIN OF DOWNLOADS, UNBLOCKS EVERYTHING
+================================================================================
+  [ ] BigEarthNet.txt.parquet                    467 MB  (~1 min @50 Mbps)
+  [ ] Reference_Maps.tar.zst                     282 MB
+  [ ] resnet50-all-v0.2.0 + -s1- + -s2- variants ~95 MB each
+  [ ] CDVQA + LEVIR-CD                           ~4 GB
+  [ ] pip install configilm duckdb
+  [ ] all 5 members: Kaggle + Colab accounts, GPU enabled, quota confirmed
+  [ ] HF org + empty model repos for M1/M3/M4/M7
+DO NOT download the 118 GB imagery yet. Profile the parquet with DuckDB first,
+select stratified patch_ids, then fetch only ~10-15 GB of matching imagery.
+  import duckdb
+  duckdb.sql("""SELECT type, category, split, count(*) n
+                FROM 'BigEarthNet.txt.parquet' GROUP BY 1,2,3 ORDER BY n DESC""").show()
+Kaggle cannot read your cloud drive at speed -> the working set must be uploaded
+as a Kaggle Dataset by D3 or M1 training slips.
+================================================================================
+## WINDOW A PLAN (now -> 5 Sep 10:00)
+================================================================================
+SPLIT THE TEAM. 3 people on the deck, 2 on the prototype. Not negotiable -
+the deck is the graded artifact and needs ~30 collective hours.
+DECK - 12 slides:
+   1 Problem: non-experts can't query satellite imagery; single-task tools don't compose
+   2 Insight: one optical image often can't answer; need SAR (structure/cloud) + bi-temporal
+   3 One-liner: "converts natural-language questions into an auditable remote-sensing
+     workflow, selects the appropriate specialist model, returns a grounded answer
+     with visual proof"
+   4 System architecture (architecture.md section 3 diagram, FULL slide)
+   5 Agentic layer: registry -> planner -> guardrail -> RuleRouter -> executor -> integrator
+   6 Execution trace mockup (THE graded novelty - show it literally)
+   7 Models x datasets table (proves not a GPT wrapper)
+   8 SAR is not RGB (dB, speckle, polarisation, separate encoder) - most teams miss this
+   9 Optical/SAR/fused ablation - NOW WITH REAL NUMBERS from the pretrained checkpoints
+  10 Prototype demo / screenshots
+  11 Honest 5->20 Sep plan with the 3-model triage
+  12 Compliance matrix: 6 mandatory capabilities -> where handled
+PROTOTYPE - real where it counts (becomes the Window B skeleton):
+  REAL: rasterio ingestion (format/CRS/bands/modality/co-reg/tiling)
+  REAL: registry.yaml + GET /tools
+  REAL: RuleRouter ONLY (skip the LLM planner - PS P10 makes this score-neutral)
+  REAL: SQLite trace store
+  REAL: Streamlit UI (upload, answer card, overlay toggles, trace panel open by default)
+  REAL: BE v2.0 pretrained classifier -> one genuinely trained RS tool + free ablation
+  HEURISTIC (declare it): NDVI/NDBI change mask, precomputed grounding boxes on
+        3-5 demo scenes, canned confidence
+  MUST: cached-answer kill switch, built Thursday not Friday morning
+ON-STAGE HONESTY LINE:
+  "The orchestration layer you're seeing is real - ingestion, validation, the tool
+   registry, routing and the execution trace all run live. The land-cover model is
+   BigEarthNet-pretrained. The remaining specialist models are heuristics today;
+   they're fine-tuned for the 20 September submission."
+NEVER claim heuristic output is a trained result.
+TIMELINE
+  3 Sep PM : deck outline all 12 slides (write 3 and 11 first); prototype scaffold
+             running end-to-end; start downloads
+  4 Sep AM : deck first draft complete
+  4 Sep PM : prototype demo path working on the 4050; freeze 3-5 demo scenes
+  4 Sep EVE: full run-through; cut weak slides; build the kill switch
+  5 Sep 09 : dry run on the actual presenting laptop, plugged in
+  5 Sep 10 : present
+Q&A PREP
+  Which base model?      -> Qwen2-VL-2B, QLoRA, native multi-image (one backbone
+                            serves single + bi-temporal + cross-modal)
+  Not a GPT wrapper?     -> slide 7 + P12; fine-tuned on BigEarthNet.txt;
+                            zero-shot -> adapted table by 20 Sep
+  If the planner fails?  -> deterministic guardrail -> RuleRouter; demo never crashes
+  How do you handle SAR? -> slide 8 (dB, speckle, pol preserved, separate encoder)
+  Compute?               -> "Free-tier notebook GPUs and a 6 GB laptop. Everything
+                            runs live on consumer hardware, offline."
+================================================================================
+## WINDOW B PLAN (5 -> 20 Sep, 15 days)
+================================================================================
+D1-D4 (5-8 Sep)   data + M1 launch. Working set -> Kaggle Dataset by D3.
+                  Zero-shot baselines (half your C5 compliance table).
+                  M1 QLoRA starts by D4.
+D5-D8 (9-12 Sep)  M4 + M7 local on 4050 (zero quota cost); M3; swap real tools into
+                  the registry one at a time, contract unchanged.
+D9-D12 (13-16 Sep) LLM planner ON TOP OF RuleRouter; M5 = M1 2-image; ablation with
+                  real numbers; abstention path; PDF report; full E-matrix.
+D13-D15 (17-19 Sep) benchmark runs -> zero-shot vs adapted table (THE C5 proof);
+                  offline check; docker cold start; demo video; freeze versions.
+20 Sep            submit with a day of slack. Do not schedule work into this day.
+6 GB TRAINING DISCIPLINE: AMP/bf16, grad checkpointing, small batch + accumulation,
+close Chrome (~5.2 GB usable of 6), plug in, prefer 2-4 h runs over 10 h (thermals).
+KAGGLE DISCIPLINE: checkpoint every 15 min, push to HF Hub each epoch,
+resume-from-checkpoint from day one, quota tracker in the team channel.
+SERVING ON THE 4050: lazy-load-and-evict (6 GB can't hold all models resident).
+Keep M1 resident, load M3/M4/M7 per step and free after. NO vLLM (pre-allocates
+for server GPUs) - use HF Transformers + bitsandbytes 4-bit.
+Latency targets: single <=10 s, grounding <=8 s, change <=20 s, cross-modal <=20 s.
+TEAM ROLES: RS/ML lead (M1) | change+fusion (M4/M5/M7/ablation) | data+GIS
+(GeoTIFF, CRS, SAR dB/speckle/pol pipeline, co-reg, tiling) | backend/orchestration
+(FastAPI, registry, guardrail, RuleRouter, trace, PDF) | frontend/eval
+(UI, overlays, benchmark harness section F, video, deck). Eval lead BLOCKS submission
+until the zero-shot -> adapted table is filled with reproduced logs.
+================================================================================
+## OPEN ITEMS
+================================================================================
+  [ ] push commit f522f61
+  [ ] verify licenses of BIFOLD-BigEarthNetv2-0 weight repos (checkpoints 0.11)
+  [ ] check whether BE.txt authors released InternVL adapters (checkpoints 0.10)
+  [ ] confirm laptop RAM (16 or 32 GB) - drives the demo raster size cap
+  [ ] confirm Kaggle/Colab free-tier quotas still live
+  [ ] consider moving the 2 workspace-*.zip (~68 MB) out of Git
+## SUGGESTED FIRST REQUEST IN THE NEW CHAT
+"Read HANDOFF.txt, ps-26167.md, architecture.md and budget.md in the repo, push
+the unpushed commit, then scaffold the Window A prototype: FastAPI/Streamlit +
+rasterio ingestion + registry.yaml + RuleRouter + SQLite trace + the BE v2.0
+pretrained classifier, GPU-first with a --device cpu flag."
