@@ -189,13 +189,59 @@ Runs offline after the first weight fetch, **with live GPU inference on the 4050
 you demo and what judges reproduce. Provide a `--device cpu` flag so a judge without a GPU can
 still run it (slower, but reproducible - this matters for the "codes and models" deliverable).
 
-### 6.2 Secondary: Hugging Face Space (free, public link — nice-to-have)
-- Free CPU tier: 2 vCPU / 16 GB RAM, sleeps when idle, **no GPU**.
+### 6.2 Secondary: Hugging Face Space (free CPU, public link — nice-to-have)
+- Free CPU tier: 2 vCPU / 16 GB RAM, unmetered, sleeps after 48 h idle, **no GPU**
+  (ZeroGPU requires PRO — see §6.2b).
 - Deploy the **light path only**: ingestion + validation + registry + RuleRouter + trace +
   precomputed demo scenes. Put M1 behind a "runs locally, see repo" note.
 - Value: a link in the PPT that a judge can click. Do not make it load-bearing for the demo.
 - Alternative if HF Spaces is unavailable: **GitHub Pages** with a static walkthrough of
   captured screenshots + a trace JSON viewer. Zero compute, still clickable.
+
+### 6.2b Hosted GPU / API options — evaluated and mostly rejected
+
+Asked directly: *can we host on OpenRouter or HF instead of the laptop?* Verified Sep 2026:
+
+| Option | Verdict | Why |
+|---|---|---|
+| **HF Spaces, free CPU** | ✅ **Use it** — for the light path | 2 vCPU / 16 GB RAM, unmetered, public `*.hf.space` URL, sleeps after 48 h idle (~30–90 s cold start). Perfect for ingestion + registry + RuleRouter + trace + precomputed scenes. |
+| **HF ZeroGPU** (H200 slice) | ❌ **Cannot use** | **Creating** a ZeroGPU Space requires a PRO subscription (~$9/mo). Free accounts may only *consume* others' ZeroGPU Spaces. Free quota is also only ~5 GPU-min/day — a handful of M1 calls. |
+| **HF Inference Providers** | ⚠️ Marginal | 100k monthly credits on the free tier, but it serves *hub* models — your private LoRA adapter is not a supported endpoint without paid inference endpoints. |
+| **OpenRouter free tier** | ❌ **Fails the PS** | See below. |
+| **Paid Spaces GPU** (T4 $0.40/h … A100 $2.50/h) | ❌ | Costs money. |
+
+#### Why OpenRouter cannot carry this project
+
+Three independent blockers, any one of which is fatal:
+
+1. **It breaks the core PS requirement.** OpenRouter serves *generic* third-party models. You
+   **cannot deploy your fine-tuned M1 adapter on it.** PS 26167 states plainly: *"A generic LLM
+   or VLM without remote-sensing adaptation **will not satisfy the requirements**."* Routing the
+   VQA path through `openrouter/free` is precisely the failure mode the PS was written to
+   exclude — and clause P12 makes it non-negotiable.
+2. **Rate limits are demo-hostile.** Free tier = **50 requests/day, 20/min** (1000/day only
+   after purchasing ≥$10 credits). A single compound demo query fires several tool calls;
+   rehearsals alone would exhaust the daily cap.
+3. **Data policy.** Free OpenRouter routes generally require enabling prompt logging/training,
+   and providers may retain inputs. Uploading satellite imagery — with an ISRO/SAC hidden
+   evaluation set in play — to a third-party API that trains on inputs is an unforced risk.
+   Also kills the offline guarantee (arch NFR-1/§9).
+
+**Narrow legitimate use:** the **M2 planner/integrator is a generic text LLM** and needs no RS
+adaptation, so it *could* be an OpenRouter call. But RuleRouter already covers it at zero cost
+and zero risk (PS P10: only the observable trace is graded), and adding a network dependency to
+your demo path buys nothing. **Recommendation: don't.** If you want an LLM-planner slide, run
+Qwen2.5-1.5B 4-bit locally on the 4050.
+
+#### The rule this settles
+
+```
+Anything the PS grades for RS adaptation  -> your weights, your GPU. Never a hosted generic API.
+Anything cosmetic or convenience          -> free hosted services are fine.
+```
+
+Your 4050 is not a fallback here — it is the **only** place the graded path can legitimately
+run. The hosted options are for the clickable link, not the demo.
 
 ### 6.3 Docker
 Keep the `Dockerfile` (PS deliverable expectation, `checkpoints.md` section I). Ship **two
@@ -214,6 +260,7 @@ the backup. Losing a trained adapter at D14 with no backup would be unrecoverabl
 
 | Risk | Mitigation |
 |---|---|
+| **Tempted to route VQA through a hosted generic API** (OpenRouter etc.) under time pressure | **Hard no** — PS P12 disqualifies generic VLMs without RS adaptation. Any such shortcut must be reverted before submission (§6.2b). |
 | Kaggle quota exhausted mid-week | Quota resets weekly; stagger across **team members' accounts** (each gets 30 h — 5 people = 150 h/week). Coordinate so two people don't train the same model. |
 | Colab pre-empts a long run | Checkpoint every 15 min + push to HF each epoch. Never rely on a >6 h uninterrupted run. |
 | Free tier changes/disappears | Two providers already (Kaggle + Colab). Fallback: CPU-train only M4/M7 (small), ship M1 zero-shot + document it. Degraded, not dead. |

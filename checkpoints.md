@@ -46,7 +46,7 @@ Every PS "shall/must" → where handled → evidence artifact → status.
 ### A.1 Mandatory functional scope
 | # | PS requirement | Handled by | Evidence | Status |
 |---|---|---|---|---|
-| A1.1 | ≥1 visual/VL component fine-tuned/adapted on BigEarthNet.txt or open RS data | M1 (also M3,M4,M6,M7) LoRA | training logs + **zero-shot vs adapted** benchmark table + adapter hashes in report | ☐ |
+| A1.1 | ≥1 visual/VL component fine-tuned/adapted on BigEarthNet.txt or open RS data — **must be OUR weights on OUR GPU; a hosted generic API (OpenRouter/HF Inference) fails PS P12** (`budget.md` §6.2b) | M1 (also M3,M4,M7) LoRA | training logs + **zero-shot vs adapted** benchmark table + adapter hashes in report | ☐ |
 | A1.2 | Single-image **VQA mandatory** | `vqa` (M1) | demo Q2 + VRSBench/RSVQA test numbers | ☐ |
 | A1.3 | + captioning **or** grounding (we do both) | `caption` (M1), `ground` (M3) | demo Q1, Q3 + numbers | ☐ |
 | A1.4 | Bi-temporal change description **or** change-VQA mandatory | `change_map`+`change_vqa` (M4,M5) | demo Q5 + CDVQA test numbers | ☐ |
