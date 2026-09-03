@@ -302,7 +302,7 @@ evaluator, report generation, submission packaging.
 
 1. Single optical (or SAR): *"Describe the land-cover and major objects visible in this
    image."* → T1 caption (+ T2 bonus boxes).
-2. *"Highlight the water body referred in the query."* → T2 grounding overlay.
+2. *"Highlight the water body referred to in the query."* → T2 grounding overlay.
 3. Bi-temporal pair: *"What changed between these two dates, and where did the change
    occur?"* → T3 mask + ChangeVQA answer with coordinates.
 4. Optical + SAR pair: *"Use the optical and SAR images together to identify built-up and

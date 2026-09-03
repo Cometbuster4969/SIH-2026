@@ -2,7 +2,7 @@
 
 **Purpose:** nothing slips. Update statuses daily; owner + date on every change.
 **Legend:** ☐ open · ◐ in progress · ☑ done · ✗ blocked (write why) · ➖ N/A
-**Companions:** `architecture.md` · `design.md` · `satquery-ai-architecture.md`
+**Companions:** `ps-26167.md` (**official PS — source of truth**) · `architecture.md` · `design.md` · `satquery-ai-architecture.md`
 
 > Today: **3 Sep 2026**.
 >
@@ -23,14 +23,14 @@
 | # | Question | Why it matters | Status |
 |---|---|---|---|
 | 0.1 | ~~What "20 Sep 2026" means~~ — **RESOLVED: 5 Sep 10:00 = Round-1 PPT pitch (prototype = bonus); 20 Sep = final submission of PPT + code + models.** | schedules everything | ☑ |
-| 0.2 | Full PS PDF — the evaluation table is a placeholder in the circulated text; exact benchmark test splits + metric names/weights | eval harness targets | ☐ |
+| 0.2 | Evaluation-criteria table — **CONFIRMED as a placeholder in the official PS itself** ("Add 'Evaluation/Judging Criteria' table here"). Metric names + weights are genuinely unpublished, not just missing from our copy. Watch for an amendment; do not block on it. | eval harness targets | ◐ |
 | 0.3 | Hardware at venue: GPU available? Can we bring own laptop+GPU? | serving config (1× vs 2×24 GB) | ☐ |
 | 0.4 | Internet at judging/eval time? | assume **none**; verify | ☐ |
 | 0.5 | How is the web app judged — our machine, their infra, or submitted build? | Docker packaging + port binding | ☐ |
 | 0.6 | How are benchmark test subsets run — our script on our hardware, or theirs on ours? | `eval/` CLI contract | ☐ |
 | 0.7 | Any model-size/latency limits stated in full PS? | M1 2B vs 7B decision | ☐ |
 | 0.8 | Is a recorded video an accepted demo backup? | kill-switch plan | ☐ |
-| 0.9 | RSVQA exact split + file layout (official link in PS is cut in our copy) | data prep | ☐ |
+| 0.9 | RSVQA + VRSBench exact splits — **the official PS Dataset Link text is itself truncated mid-sentence ("VRSBench — for")**. Links are incomplete in the source, not our copy. Use the papers' canonical splits and document the choice. | data prep | ◐ |
 | 0.10 | BigEarthNet.txt: confirm HF `BIFOLD-BigEarthNetv2-0/BigEarthNet.txt` layout, split files, license (CC-BY 4.0), and whether InternVL adapter code is released | M1/M6 training | ☐ |
 
 ---
@@ -38,6 +38,10 @@
 ## A. Problem-statement compliance matrix (the graded contract)
 
 Every PS "shall/must" → where handled → evidence artifact → status.
+
+> **PS priority (verbatim):** *"Single-image understanding is a mandatory **baseline**, while the
+> **principal focus** is joint reasoning over paired cross-modal and multitemporal imagery."*
+> A1.4 and A1.6 therefore carry more weight than A1.2/A1.3. Budget accordingly.
 
 ### A.1 Mandatory functional scope
 | # | PS requirement | Handled by | Evidence | Status |
@@ -47,7 +51,7 @@ Every PS "shall/must" → where handled → evidence artifact → status.
 | A1.3 | + captioning **or** grounding (we do both) | `caption` (M1), `ground` (M3) | demo Q1, Q3 + numbers | ☐ |
 | A1.4 | Bi-temporal change description **or** change-VQA mandatory | `change_map`+`change_vqa` (M4,M5) | demo Q5 + CDVQA test numbers | ☐ |
 | A1.5 | Spatial change map where reference masks available | M4 mask overlay + facts | overlay in UI + PDF | ☐ |
-| A1.6 | Cross-modal optical–SAR pair analysis | `xmodal_*` (M6,M7) | demo Q4 + BE.txt benchmark-split numbers | ☐ |
+| A1.6 | Cross-modal optical–SAR: extract **complementary** information from a co-registered pair | `xmodal_*` via **M1 2-image mode + M7 presence + §7.3 ablation** (M6 = optional upgrade) | demo Q4 + BE.txt benchmark-split numbers + **ablation proving SAR contributes** | ☐ |
 | A1.7 | Agentic orchestration: select/sequence/execute specialist models per query + inputs | Planner+Registry+Executor | **compound demo Q6** (multi-step) + trace | ☐ |
 
 ### A.2 Agent controller duties (PS bullet list)
@@ -81,8 +85,8 @@ Every PS "shall/must" → where handled → evidence artifact → status.
 ### A.5 Mandatory demonstrations (demo script = these, verbatim PS queries)
 | # | Demo | PS query | Status |
 |---|---|---|---|
-| A5.1 | single-image VQA | "What objects are visible?" (VQA) | ☐ |
-| A5.2 | additional single-image task (caption + grounding) | "Describe the land-cover and major objects…" / "Highlight the water body…" | ☐ |
+| A5.1 | single-image VQA **(mandatory baseline)** | PS gives no verbatim single-image VQA query — use a benchmark-style one, e.g. "Is there a water body in this image?" / "What is the dominant land-cover type?" | ☐ |
+| A5.2 | additional single-image task (caption + grounding) | "Describe the land-cover and major objects…" / "Highlight the water body referred to in the query." | ☐ |
 | A5.3 | multitemporal change understanding | "What changed between these two dates, and where did the change occur?" | ☐ |
 | A5.4 | optical–SAR pair analysis | "Use the optical and SAR images together to identify built-up and water-covered regions." | ☐ |
 | A5.5 | agentic orchestration (compound, multi-step) | "Describe both scenes, tell me what changed, and highlight the new built-up areas." | ☐ |
@@ -94,7 +98,7 @@ Every PS "shall/must" → where handled → evidence artifact → status.
 | A6.1 | Interactive GUI/web app + agentic RS-AI backend | ☐ |
 | A6.2 | Code (repo, README, 1-command run) | ☐ |
 | A6.3 | Models (weights + cards + hashes) | ☐ |
-| A6.4 | Tests (pytest unit + integration + test matrix §E) | ☐ |
+| A6.4 | Tests — **PS deliverable names "test" explicitly**: pytest unit + integration + test matrix §E, with a runnable command and committed output | ☐ |
 | A6.5 | Demonstration (live + ≤5 min video backup) | ☐ |
 | A6.6 | Eval runs on prescribed public benchmark test subsets (logs + tables) | ☐ |
 
@@ -189,7 +193,7 @@ Per model: base weights ☐ · adapter/weights path ☐ · training config commi
 |---|---|---|---|---|
 | E1 | 1 optical GeoTIFF | "Describe the land-cover and major objects…" | caption + facts; trace ok | ☐ |
 | E2 | 1 optical GeoTIFF | VQA ("What is the dominant cover?") | constrained answer + conf | ☐ |
-| E3 | 1 optical | "Highlight the water body…" | bbox overlay + label | ☐ |
+| E3 | 1 optical | "Highlight the water body referred to in the query." | bbox overlay + label | ☐ |
 | E4 | 1 SAR GeoTIFF | "Describe this image." | caption; modality=SAR stated | ☐ |
 | E5 | 2 optical, Δt=1032 d | "What changed… and where?" | change map + answer with locations | ☐ |
 | E6 | 2 optical, Δt>0 | "Has built-up increased, decreased, or remained unchanged?" | mask-computed number + narration | ☐ |

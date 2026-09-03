@@ -1,7 +1,7 @@
 # SatQuery AI — Architecture (PS 26167, ISRO, SIH 2026)
 
 **Version:** 1.1 — 3 Sep 2026
-**Companion docs:** `design.md` (UI/API/report design) · `checkpoints.md` (compliance + execution checklist) · `satquery-ai-architecture.md` (PS rating + verified dataset facts) · `proposedidea.md` (scope decisions + deadline split)
+**Companion docs:** `ps-26167.md` (**official PS — source of truth**) · `design.md` (UI/API/report) · `checkpoints.md` (compliance + execution checklist) · `satquery-ai-architecture.md` (PS rating + dataset facts) · `proposedidea.md` (scope decisions)
 
 > ### Deadline banner — read before using this document
 >
@@ -33,11 +33,18 @@
 ## 2. Design principles
 
 1. **Tile-based & resolution-agnostic.** Everything processes 512×512 tiles (64 px overlap) with explicit tile→geo transforms. Same pipeline for 20 m Sentinel and 1 m Cartosat.
-2. **Tools are registry objects.** Every specialist is a registered tool with a JSON input/output schema, a version, and a confidence contract. The agent only ever plans over the registry — never calls models directly. This is what makes the execution trace auditable (a graded artifact).
-3. **Numbers from CV, prose from LLM.** Areas, counts, deltas are computed by masks/detectors. The LLM narrates from structured tool outputs only (integrator prompt forbids invention).
-4. **Guardrailed agent.** LLM planner → deterministic schema/scope validation → deterministic fallback router. The demo never crashes on a plan failure.
-5. **Trace everything.** Every request persists: query, input inventory, task, plan, per-step tool+params+inputs(hash)+output+confidence+latency, final answer.
-6. **Offline-first.** All weights vendored; zero external calls at run time.
+2. **Only the observable trace is graded — internal reasoning is not.** PS: *"The controller may
+   perform internal task planning; however, only the observable execution trace, including the
+   selected task, models or tools, permitted parameters, and outputs will be evaluated. Internal
+   reasoning text is neither required nor evaluated."* Consequence: **do not surface chain-of-
+   thought, and do not spend effort making the planner's prose look clever.** Spend it on the
+   trace record (§6 contract) being complete, structured and truthful. A deterministic RuleRouter
+   that emits a perfect trace scores exactly as well as an LLM planner that emits the same trace.
+3. **Tools are registry objects.** Every specialist is a registered tool with a JSON input/output schema, a version, and a confidence contract. The agent only ever plans over the registry — never calls models directly. This is what makes the execution trace auditable (a graded artifact).
+4. **Numbers from CV, prose from LLM.** Areas, counts, deltas are computed by masks/detectors. The LLM narrates from structured tool outputs only (integrator prompt forbids invention).
+5. **Guardrailed agent.** LLM planner → deterministic schema/scope validation → deterministic fallback router. The demo never crashes on a plan failure.
+6. **Trace everything.** Every request persists: query, input inventory, task, plan, per-step tool+params+inputs(hash)+output+confidence+latency, final answer.
+7. **Offline-first.** All weights vendored; zero external calls at run time.
 
 ## 3. System overview
 
@@ -181,6 +188,13 @@ All plans end with `integrate`. Multi-step user queries ⇒ planner may emit lon
 
 ### 7.1 Model triage for the 15-day Window B (binding)
 
+> **PS priority statement (verbatim):** *"Single-image understanding is a mandatory **baseline**,
+> while the **principal focus** is joint reasoning over paired cross-modal and multitemporal
+> imagery."*
+>
+> Effort must follow that ordering: **paired reasoning (change + optical–SAR) outranks
+> single-image polish.** Single-image VQA is a gate to pass, not the place to spend surplus days.
+
 Seven trained models in 15 days on SIH-grade GPU access is not achievable. Priority is fixed:
 
 | Tier | Models | Decision |
@@ -190,11 +204,17 @@ Seven trained models in 15 days on SIH-grade GPU access is not achievable. Prior
 | | **M3** (Grounding-DINO-T, light VRSBench-refs fine-tune) | Cheap; delivers the most visually convincing demo. |
 | **No separate train** | **M5** | It *is* M1 in 2-image mode. Do not budget a separate run. |
 | | **M2** | Prompt-engineered Qwen2.5-7B-4bit, no fine-tune. RuleRouter always underneath. |
-| **Stretch / demote** | **M6** dual-tower fusion | Satisfy the C3 optical–SAR mandate with **M1 fed both images + the ablation view (§7.3)**. Build the dual tower only if GPU days remain after 15 Sep. |
+| **Must ship (path, not model)** | **Cross-modal optical–SAR** | PS *principal focus* — cannot be a stretch item. Ship it as **M1 in 2-image mode (optical+SAR) + M7 presence + the §7.3 ablation**, trained on BE.txt S1–S2 triplets. This is a real, trained, cross-modal path with no extra run. |
+| **Stretch (upgrade only)** | **M6** dual-tower + Q-Former | An *architectural upgrade* to the above, not the way the mandate is met. Build only if GPU days remain after 15 Sep. Its absence must never leave C3 unserved. |
 | | **M7** | Reframed — see §7.2. Patch-level only. |
 
 **Three trained models, not seven.** The remaining mandatory capabilities are met by reuse
 (M1 multi-image) and honest reframing, not by additional runs.
+
+**Guard against the obvious failure mode:** because M1 serves single-image *and* both paired
+modes, it is tempting to tune it on single-image data and let the paired modes ride along. Do
+not. Weight the training mix toward **2-image samples (BE.txt S1–S2 triplets, CDVQA, TAMMI)**
+and gate M1 on paired-task metrics, per the PS priority statement above.
 
 ### 7.2 M7 correction — patch-level, not per-pixel (data/claim mismatch)
 

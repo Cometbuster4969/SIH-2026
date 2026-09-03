@@ -1,7 +1,7 @@
 # SatQuery AI — Design (UI / UX, API, Data Schemas, Report)
 
 **Version:** 1.1 — 3 Sep 2026
-**Companion docs:** `architecture.md` · `checkpoints.md` · `satquery-ai-architecture.md` · `proposedidea.md`
+**Companion docs:** `ps-26167.md` (**official PS — source of truth**) · `architecture.md` · `checkpoints.md` · `satquery-ai-architecture.md` · `proposedidea.md`
 
 > **Scope note:** §1–§13 describe the **20 Sep** system. For the **5 Sep pitch**, build only:
 > upload + inventory cards, answer card, overlay toggles, trace panel, demo mode
