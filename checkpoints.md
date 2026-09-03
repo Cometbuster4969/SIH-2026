@@ -128,7 +128,7 @@ Every PS "shall/must" → where handled → evidence artifact → status.
 | Domain-gap test set: Cartosat-2S samples + RISAT samples (or proxies: ISPRS Vaihingen ~0.3 m, Daudt/SAR-GSB) | ISRO/RESRDA + open sources | ~20 pairs | ☐ | ☐ | ☐ | — | ☐ |
 
 Data rules:
-- ☐ Disk budget — **zero-budget reality: do NOT plan for 1.5–3 TB.** Subset everything; see `budget.md` §3. Full BE v2 = 118 GB, BE.txt larger still; you will use a few GB.
+- ☐ Disk: **5 TB cloud available** — full datasets viable. But Kaggle can't read it at speed: build a stratified **30–60 GB working subset and upload as a Kaggle Dataset by D3** (`budget.md` §3.1). Start the 118 GB BE v2 pull tonight.
 - ☐ Benchmark **test splits never enter training** (track file lists in `eval/splits.json`)
 - ☐ `docs/datasets.md` written: per-dataset license + usage + citation (required for submission)
 
@@ -183,7 +183,7 @@ Per model: base weights ☐ · adapter/weights path ☐ · training config commi
 - ☐ `docker compose up` cold start <10 min; `/warmup` loads all weights
 - ☐ Offline verified: egress blocked → full run works, zero external calls
 - ☐ Latency budgets (arch §10): single ≤8 s, change ≤15 s, xmodal ≤15 s (median, p95 logged)
-- ☐ **CPU-only laptop run works** (`budget.md` §5) — ONNX for M3/M4/M7, precomputed answers for the 5 scripted queries
+- ☐ **RTX 4050 6 GB run works** (`budget.md` §5) — lazy-load-and-evict, no OOM across all 6 demo flows back-to-back; `--device cpu` path also verified for judges without a GPU
 
 ---
 
@@ -358,11 +358,11 @@ table is filled with reproduced logs.
 | # | Risk | Trigger | Action | Owner |
 |---|---|---|---|---|
 | J1 | BE.txt download slow/corrupt | D3 not fully down | partial 50K subset first; fallback: reBEN/Sentinel2Cap + BE v2 with generated text | ☐ |
-| J2 | GPU shortage — **this is the baseline, not a risk: ₹0 budget, free 16 GB notebooks only** | always | QLoRA 4-bit; M1-2B only; stratified 20–40K subset; M6 cut; stagger across 5 members' Kaggle accounts (`budget.md` §4, §7) | ☐ |
+| J2 | GPU limits — **baseline, not a risk: 6 GB local + free 16 GB notebooks** | always | M1 QLoRA on Kaggle (won't fit 6 GB); M3/M4/M7 local on 4050; M6 cut; stagger 5 Kaggle accounts (`budget.md` §4, §7) | ☐ |
 | J3 | M1 underperforms gate | D12 numbers < target | more epochs on BE.txt VQA slice; check template-caption bias; raise RSVQA weight | ☐ |
 | J4 | Planner unstable in demo | fallback rate >5 % on suite | simplify plan JSON (tool+params only); raise rule-router share | ☐ |
 | J5 | Hidden set 1 m Cartosat / L-band RISAT surprises | §A7.1 test fails on proxies | tiling already; add band-config presets; re-test on real samples ASAP | ☐ |
-| J6 | Demo-day GPU failure | any crash during demo | cached answers + video (H. kill-switch) | ☐ |
+| J6 | Demo-day GPU failure / 4050 OOM or thermal throttle | any crash during demo | lazy-load-evict; plug in + close all apps; cached answers + video (H. kill-switch) | ☐ |
 | J7 | Co-registration surprises in hidden set | offset > 2 px on eval samples | auto-warp already; else polite COMPAT_REPORT (never crash) | ☐ |
 | J8 | Time overrun | G schedule slips >2 d | cut: ChangeChat-105k, ADE20K-GS, M7 second class; keep M1/M4/M5/M6 | ☐ |
 | J9 | Metrics/weights unknown (PS table missing) | still unknown at D18 | standard metrics + self-evident report; ask §0.2 | ☐ |

@@ -294,10 +294,11 @@ Trace persisted (SQLite) → UI + PDF
 
 ## 9. Inference serving & deployment
 
-> **⚠ Superseded for the actual build by `budget.md`.** The team has **zero budget** — no paid
-> GPU or hosting. The GPU table below is the *production target*, not the 5/20 Sep plan.
-> Real plan: **train on free Kaggle/Colab (16 GB, QLoRA), serve on a laptop CPU, no cloud.**
-> M6 is cut. See `budget.md` §4–§6.
+> **⚠ Superseded for the actual build by `budget.md`.** Zero cash budget. Actual hardware:
+> **RTX 4050 6 GB laptop + 5 TB cloud + free Kaggle/Colab 16 GB**. The 2×24 GB table below is
+> the *production target*, not the 5/20 Sep plan.
+> Real plan: **M1 QLoRA on Kaggle 16 GB; M3/M4/M7 trained locally on the 4050; all serving live
+> on the 4050 with lazy-load-and-evict; no vLLM; M6 cut.** See `budget.md` §4–§6.
 
 | Model | Memory (serving) | Runner | GPU |
 |---|---|---|---|
@@ -316,6 +317,10 @@ Trace persisted (SQLite) → UI + PDF
 - Concurrency: 1 request at a time (queue, 2nd user sees position) — matches single-user judging.
 
 ## 10. Latency budgets (1024² image, 4090, median)
+
+> **Actual targets on the real demo machine (RTX 4050 6 GB) are in `budget.md` §5:**
+> single ≤10 s · grounding ≤8 s · change ≤20 s · cross-modal ≤20 s. The 4090 table below is the
+> production reference.
 
 | Stage | Target |
 |---|---|
