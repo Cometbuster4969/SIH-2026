@@ -57,23 +57,61 @@ is a lost round. **The 5 Sep and 20 Sep demos run on your own laptop, offline.**
 
 ---
 
-## 3. Dataset strategy - 5 TB changes this
+## 3. Dataset strategy - parquet changes the picture
 
-Full sizes (verified): **BigEarthNet v2 = 118 GB** (S1 54.4 + S2 63.3 + reference maps 0.28 GB).
-With 5 TB you can hold everything. **But storage was never the only constraint - transfer time
-and training time still are.**
+> **Verified 3 Sep 2026 (HF repo listing).** `BIFOLD-BigEarthNetv2-0/BigEarthNet.txt` ships as a
+> **single `BigEarthNet.txt.parquet` file — 467 MB**, containing **all 9.55M annotations**.
+> License **CDLA-Permissive-1.0**. Columns: `ID, s1_name, patch_id, input, output, type,
+> category, split, latitude, longitude, country, season, climate_zone`.
+> The repo also ships `ben_txt_datamodule.py` + `example_data_loading.py` - **use their loader**.
 
-| Dataset | Full size | Take | Where it lives |
+### 3.0 The key insight: annotations and imagery are separate downloads
+
+BigEarthNet.txt is **text only**. It references imagery by `patch_id` / `s1_name`; the actual
+pixels live in BigEarthNet v2.0 on Zenodo (118 GB). That separation is a gift:
+
+| Component | Format | Size | Download? |
 |---|---|---|---|
-| BigEarthNet.txt | 100s of GB | **Full annotations + 50-100k image pairs** | 5 TB cloud (archive) -> Kaggle Dataset (working set) |
-| BigEarthNet v2 imagery | 118 GB | **Full** if bandwidth allows, else 30-50 GB stratified | 5 TB cloud |
-| BE v2 Reference_Maps | 282 MB | **All** - this is M7's pixel-label source | everywhere, it's tiny |
-| VRSBench | ~10 GB | **Full** (train + test) | 5 TB cloud |
-| RSVQA | few GB | **Full** | 5 TB cloud |
-| CDVQA | ~2 GB | **Full** | local laptop too |
-| LEVIR-CD / WHU-CD | ~2 GB | **Both** | local laptop too |
+| **BigEarthNet.txt annotations** | single parquet | **467 MB** | ✅ **Yes - tonight, takes minutes** |
+| BigEarthNet v2 S2 (optical) | tar.zst | 63.3 GB | ⚠️ Subset via patch_id |
+| BigEarthNet v2 S1 (SAR) | tar.zst | 54.4 GB | ⚠️ Subset via patch_id |
+| BE v2 Reference_Maps (M7 labels) | tar.zst | 282 MB | ✅ Yes, whole thing |
 
-### 3.1 The three-tier storage pattern
+**Revised workflow - this is materially better than the streaming plan:**
+
+1. **Download the 467 MB parquet now.** It is small enough for the laptop, for Git LFS, for a
+   Kaggle Dataset, for anything.
+2. **Query it with DuckDB/Polars to design the training mix** - zero GPU, zero cloud, instant.
+   You can answer "how many bounding-box samples in the train split over built-up areas?" in
+   milliseconds, *before* downloading a single image.
+3. **Select your target patch_ids from the parquet** (stratified by `category`, `type`,
+   `country`, `season`, `climate_zone` - the metadata is right there).
+4. **Fetch only those patches** from Zenodo. 30-50k patches ~ 10-15 GB instead of 118 GB.
+
+```python
+import duckdb
+con = duckdb.connect()
+# inspect the whole 9.55M-row dataset without loading it into RAM
+con.sql("""
+  SELECT type, category, split, count(*) AS n
+  FROM 'BigEarthNet.txt.parquet'
+  GROUP BY 1,2,3 ORDER BY n DESC
+""").show()
+
+# build a stratified training mix and export the patch list
+con.sql("""
+  SELECT DISTINCT patch_id, s1_name
+  FROM 'BigEarthNet.txt.parquet'
+  WHERE split = 'train'
+  USING SAMPLE 40000 ROWS
+""").write_parquet('working_patches.parquet')
+```
+
+**Consequence:** the "start the 118 GB download tonight" advice is **downgraded**. Do the 467 MB
+parquet tonight, decide the subset tomorrow with real numbers in hand, then pull only the
+imagery you actually need. Less waiting, and a defensible stratification you can put on a slide.
+
+### 3.1 The three-tier storage pattern### 3.1 The three-tier storage pattern
 
 ```
 5 TB cloud      = cold archive. Full datasets, raw downloads, checkpoints history.
@@ -84,20 +122,26 @@ Laptop SSD      = demo scenes + small benchmarks (CDVQA, LEVIR-CD) + weights.
 **Critical:** Kaggle notebooks **cannot read your cloud drive at speed**. Whatever M1 trains on
 must be uploaded as a **Kaggle Dataset** (free, persists across sessions, ~100 GB quota). So:
 
-1. Download full data to 5 TB cloud (slow, once, in the background).
-2. Build a stratified **30-60 GB working subset** locally.
-3. Upload that once as a Kaggle Dataset. Train from it all week.
+1. Download the **467 MB parquet** + reference maps (minutes).
+2. Query with DuckDB -> choose patch_ids -> fetch **only those** images from Zenodo (~10-15 GB).
+3. Upload that working set once as a Kaggle Dataset. Train from it all week.
 
 The 5 TB is your safety net and your archive - it is **not** the thing Kaggle reads.
 
 ### 3.2 Time budget, not storage budget
 
-Downloading 118 GB on a typical Indian home connection (~50 Mbps) is **~5.5 hours**; at 20 Mbps
-it is ~13 hours. Start the BE v2 + BE.txt pulls **tonight, in the background**, before you need
-them. That is the single highest-value thing you can do today that costs nothing.
+| Pull | Size | At 50 Mbps | At 20 Mbps | When |
+|---|---|---|---|---|
+| BigEarthNet.txt parquet | 467 MB | **~1 min** | ~3 min | **tonight** |
+| BE v2 Reference_Maps | 282 MB | <1 min | ~2 min | **tonight** |
+| CDVQA + LEVIR-CD | ~4 GB | ~11 min | ~27 min | tonight |
+| BE v2 imagery **subset** (~15 GB) | 15 GB | ~40 min | ~1.7 h | after step 3 above |
+| BE v2 imagery **full** | 118 GB | ~5.5 h | ~13 h | only if you decide you need it |
 
-**Still stratify the training subset.** 50k well-balanced samples beats 500k unbalanced ones at
-a 15-day deadline. Storage is free now; your GPU hours are not.
+**Do the small pulls tonight; defer the big one until the parquet tells you what to fetch.**
+
+**Still stratify.** 40k well-balanced samples beats 400k unbalanced ones at a 15-day deadline -
+and now you can *prove* the balance from parquet queries rather than asserting it.
 
 ---
 
@@ -277,15 +321,17 @@ the backup. Losing a trained adapter at D14 with no backup would be unrecoverabl
 ## 8. Zero-budget checklist
 
 **Setup (do today)**
-- [ ] **Start the BE v2 + BE.txt download to the 5 TB cloud tonight, in the background** (5-13 h)
+- [ ] **Download `BigEarthNet.txt.parquet` (467 MB) + `Reference_Maps.tar.zst` (282 MB) tonight** - minutes, not hours
+- [ ] Run the DuckDB profiling queries (section 3.0) to design the training mix *before* pulling imagery
 - [ ] All 5 members have Kaggle + Colab accounts, GPU enabled, quota confirmed
 - [ ] HF account + org created; empty model repos for M1/M3/M4/M7
 - [ ] Demo laptop = **the 4050 machine**; CUDA + PyTorch verified, `nvidia-smi` clean
 - [ ] Confirm laptop RAM (16 or 32 GB) - drives the raster size cap
 
 **Data (D1-D4)**
-- [ ] Full datasets landing in 5 TB cloud (background)
-- [ ] **Stratified 30-60 GB working subset built and uploaded as a Kaggle Dataset by D3**
+- [ ] Parquet profiled; stratified `patch_id` list exported
+- [ ] **Only the selected ~10-15 GB of BE v2 imagery** pulled (not all 118 GB)
+- [ ] **Working set (parquet + selected imagery) uploaded as a Kaggle Dataset by D3**
 - [ ] Full test splits fetched (VRSBench, RSVQA, CDVQA) - never subset these
 - [ ] BE v2 `Reference_Maps.tar.zst` (282 MB) + matched S1/S2 subset for M7, **on the laptop**
 

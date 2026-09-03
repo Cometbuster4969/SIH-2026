@@ -31,7 +31,7 @@
 | 0.7 | Any model-size/latency limits stated in full PS? | M1 2B vs 7B decision | ☐ |
 | 0.8 | Is a recorded video an accepted demo backup? | kill-switch plan | ☐ |
 | 0.9 | RSVQA + VRSBench exact splits — **the official PS Dataset Link text is itself truncated mid-sentence ("VRSBench — for")**. Links are incomplete in the source, not our copy. Use the papers' canonical splits and document the choice. | data prep | ◐ |
-| 0.10 | BigEarthNet.txt: confirm HF `BIFOLD-BigEarthNetv2-0/BigEarthNet.txt` layout, split files, license (CC-BY 4.0), and whether InternVL adapter code is released | M1/M6 training | ☐ |
+| 0.10 | ~~BigEarthNet.txt layout/license~~ — **RESOLVED:** single `BigEarthNet.txt.parquet` (467 MB, 9.55M rows), license **CDLA-Permissive-1.0** (not CC-BY), `split` column carries train/val/test, official `ben_txt_datamodule.py` loader shipped in-repo. Remaining: check for released InternVL adapters. | M1 training | ◐ |
 
 ---
 
@@ -116,7 +116,7 @@ Every PS "shall/must" → where handled → evidence artifact → status.
 
 | Dataset | Source | Scale | Download | License | QC (format, splits, sample render) | Converter → unified JSONL | Stored @ /data/datasets |
 |---|---|---|---|---|---|---|---|
-| **BigEarthNet.txt** (PRIMARY) | HF `BIFOLD-BigEarthNetv2-0/BigEarthNet.txt` | 229,114 train pairs (~9.6M ann. total); stratified **100K subset** for SIH timeline | ☐ | CC-BY 4.0 ☐ | ☐ | ☐ | ☐ |
+| **BigEarthNet.txt** (PRIMARY) | HF `BIFOLD-BigEarthNetv2-0/BigEarthNet.txt` — **single 467 MB parquet, 9.55M rows, text only** | take **all rows**; join to a stratified ~40K-patch imagery subset via `patch_id` | ☐ | CC-BY 4.0 ☐ | ☐ | ☐ | ☐ |
 | VRSBench | github.com/lx709/VRSBench | 29,614 img, 123,221 QA, 52,472 refs | ☐ | ☐ | ☐ (verify official train/test split assignment) | ☐ | ☐ |
 | RSVQA | PS link / official repo | ~20K QA | ☐ | ☐ | ☐ | ☐ | ☐ |
 | CDVQA | github.com/YZHJessica/CDVQA | 2,968 pairs (512²), 122K QA | ☐ | ☐ | ☐ | ☐ | ☐ |
@@ -128,7 +128,7 @@ Every PS "shall/must" → where handled → evidence artifact → status.
 | Domain-gap test set: Cartosat-2S samples + RISAT samples (or proxies: ISPRS Vaihingen ~0.3 m, Daudt/SAR-GSB) | ISRO/RESRDA + open sources | ~20 pairs | ☐ | ☐ | ☐ | — | ☐ |
 
 Data rules:
-- ☐ Disk: **5 TB cloud available** — full datasets viable. But Kaggle can't read it at speed: build a stratified **30–60 GB working subset and upload as a Kaggle Dataset by D3** (`budget.md` §3.1). Start the 118 GB BE v2 pull tonight.
+- ☐ Disk: **5 TB available**, but **the 118 GB pull is now optional** — BE.txt is a 467 MB parquet; profile it with DuckDB, select patch_ids, fetch only ~10–15 GB of imagery (`budget.md` §3.0). Working set to a Kaggle Dataset by D3.
 - ☐ Benchmark **test splits never enter training** (track file lists in `eval/splits.json`)
 - ☐ `docs/datasets.md` written: per-dataset license + usage + citation (required for submission)
 
