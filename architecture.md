@@ -1,7 +1,18 @@
 # SatQuery AI — Architecture (PS 26167, ISRO, SIH 2026)
 
-**Version:** 1.0 — 3 Sep 2026
-**Companion docs:** `design.md` (UI/API/report design) · `checkpoints.md` (compliance + execution checklist) · `satquery-ai-architecture.md` (PS rating + verified dataset facts)
+**Version:** 1.1 — 3 Sep 2026
+**Companion docs:** `ps-26167.md` (**official PS — source of truth**) · `budget.md` (**₹0 constraint — overrides §9 deployment**) · `design.md` (UI/API/report) · `checkpoints.md` (compliance + execution checklist) · `satquery-ai-architecture.md` (PS rating + dataset facts) · `proposedidea.md` (scope decisions)
+
+> ### Deadline banner — read before using this document
+>
+> | Window | Ends | Graded artifact | This doc's role |
+> |---|---|---|---|
+> | **A — Pitch** | **5 Sep, 10:00** | **PPT** (prototype = bonus points only) | Source material for the deck. Screenshot §3, §6, §7. Build only the *thin* prototype (see `proposedidea.md` §3). |
+> | **B — Final** | **20 Sep** | **PPT + code + models** | The build spec. Every section below is in scope, subject to the model triage in §7.1. |
+>
+> Window A is ~46 h. Window B is 15 days. **Nothing here is "someday" work** — 20 Sep is a hard
+> deliverable with running code and trained weights. What Window A builds must be Window B's
+> skeleton: real registry, real ingestion, real trace, stub tools behind the real contract.
 
 ---
 
@@ -22,11 +33,18 @@
 ## 2. Design principles
 
 1. **Tile-based & resolution-agnostic.** Everything processes 512×512 tiles (64 px overlap) with explicit tile→geo transforms. Same pipeline for 20 m Sentinel and 1 m Cartosat.
-2. **Tools are registry objects.** Every specialist is a registered tool with a JSON input/output schema, a version, and a confidence contract. The agent only ever plans over the registry — never calls models directly. This is what makes the execution trace auditable (a graded artifact).
-3. **Numbers from CV, prose from LLM.** Areas, counts, deltas are computed by masks/detectors. The LLM narrates from structured tool outputs only (integrator prompt forbids invention).
-4. **Guardrailed agent.** LLM planner → deterministic schema/scope validation → deterministic fallback router. The demo never crashes on a plan failure.
-5. **Trace everything.** Every request persists: query, input inventory, task, plan, per-step tool+params+inputs(hash)+output+confidence+latency, final answer.
-6. **Offline-first.** All weights vendored; zero external calls at run time.
+2. **Only the observable trace is graded — internal reasoning is not.** PS: *"The controller may
+   perform internal task planning; however, only the observable execution trace, including the
+   selected task, models or tools, permitted parameters, and outputs will be evaluated. Internal
+   reasoning text is neither required nor evaluated."* Consequence: **do not surface chain-of-
+   thought, and do not spend effort making the planner's prose look clever.** Spend it on the
+   trace record (§6 contract) being complete, structured and truthful. A deterministic RuleRouter
+   that emits a perfect trace scores exactly as well as an LLM planner that emits the same trace.
+3. **Tools are registry objects.** Every specialist is a registered tool with a JSON input/output schema, a version, and a confidence contract. The agent only ever plans over the registry — never calls models directly. This is what makes the execution trace auditable (a graded artifact).
+4. **Numbers from CV, prose from LLM.** Areas, counts, deltas are computed by masks/detectors. The LLM narrates from structured tool outputs only (integrator prompt forbids invention).
+5. **Guardrailed agent.** LLM planner → deterministic schema/scope validation → deterministic fallback router. The demo never crashes on a plan failure.
+6. **Trace everything.** Every request persists: query, input inventory, task, plan, per-step tool+params+inputs(hash)+output+confidence+latency, final answer.
+7. **Offline-first.** All weights vendored; zero external calls at run time.
 
 ## 3. System overview
 
@@ -88,6 +106,33 @@ UI ◀── done: answer + overlays (change map, areas) + trace + report_url
 
 Output: **Input Inventory** JSON (canonical schema in `design.md` §11) + tile index (tile id, geo bounds, pixel box, overlap mask).
 
+### 5.1 Modality-specific preprocessing (SAR is never treated as RGB)
+
+Detection (above) decides *which* pipeline runs. The two pipelines share no normalization code.
+
+**Optical / multispectral**
+- Band-aware normalization using per-band statistics — never a single global stretch.
+- Preserve spectral relationships; do **not** collapse to RGB before the encoder. RGB is
+  generated for *display only*, on a separate path from the tensor fed to the model.
+- Band-role map per sensor (S2 `B2,B3,B4,B8…`; Cartosat RGB/NIR) recorded in the inventory.
+- Cloud/haze flag from a brightness+NIR heuristic → lowers confidence and raises a ⚠ in the
+  answer when the queried region is affected.
+
+**SAR**
+- Amplitude → **dB (log) conversion** before normalization; linear-space stretching of SAR is
+  the classic error and destroys the dynamic range.
+- Speckle-aware handling: optional Lee/gamma filter, off by default, logged in the trace when on.
+  Never a plain Gaussian blur.
+- **Polarisation preserved** where present (VV/VH kept as distinct channels, not averaged);
+  single-pol input is padded with an explicit "pol unavailable" flag rather than duplicated.
+- Percentile clip (typically 2–98 %) computed on the dB image, per-scene.
+- L-band RISAT vs C-band Sentinel-1 differ in backscatter behaviour — band is recorded in the
+  inventory and surfaced in the trace, since it affects how confidently built-up can be claimed.
+
+Rationale: a model with an RGB-pretrained stem applied to raw SAR amplitude produces
+confident nonsense. Separate stems + separate normalization is the minimum defensible design,
+and is what makes the §7.3 ablation meaningful rather than cosmetic.
+
 ## 6. Tool registry (contracts)
 
 Registry lives in `backend/agent/registry.yaml` + JSON schemas in `backend/agent/schemas/`.
@@ -138,8 +183,78 @@ All plans end with `integrate`. Multi-step user queries ⇒ planner may emit lon
 | **M4** | Change backbone | BiT (or ChangeFormer) | QAG-360K (masks) + CDVQA (semantic change maps) + LEVIR-CD/WHU-CD | change_map |
 | **M5** | Change-VQA head | M1 (2-image mode) | CDVQA (122K QA) + QAG-360K triplets + ChangeChat-105k | change_vqa |
 | **M6** | Optical–SAR fusion | dual ViT towers (S2-pretrained optical, SAR-pretrained: SEN2SAR/SARImageNet) + Q-Former → M1 decoder | **BE.txt S1–S2–text triplets (229K)** + TAMMI (VHR+MS+SAR VQA) | xmodal_caption, xmodal_vqa |
-| **M7** | Dual-input UNet++ | scratch, ImageNet init | BigEarthNet v2 LULC reference maps (S2+S1 aligned) | xmodal_mask (built_up, water) |
+| **M7** | Dual-input UNet++ — **per-pixel** built-up/water segmentation (see §7.2) | UNet++ (ImageNet-init encoder) | BigEarthNet v2 **pixel-level reference maps** (`Reference_Maps.tar.zst`, CLC2018-derived) + aligned S1/S2 | xmodal_mask (built_up, water) |
 | **T5** | Evidence utilities | Grad-CAM/attention rollback; token-probability extraction; temperature calibration on held-out set | — | confidence + evidence crops |
+
+### 7.1 Model triage for the 15-day Window B (binding)
+
+> **PS priority statement (verbatim):** *"Single-image understanding is a mandatory **baseline**,
+> while the **principal focus** is joint reasoning over paired cross-modal and multitemporal
+> imagery."*
+>
+> Effort must follow that ordering: **paired reasoning (change + optical–SAR) outranks
+> single-image polish.** Single-image VQA is a gate to pass, not the place to spend surplus days.
+
+Seven trained models in 15 days on SIH-grade GPU access is not achievable. Priority is fixed:
+
+| Tier | Models | Decision |
+|---|---|---|
+| **Must ship** | **M1** (Qwen2-VL-2B + LoRA, stratified BE.txt subset) | Critical path. Satisfies C5 alone. In 2-image mode it *also* covers change-VQA and cross-modal VQA. **Start the HF download 5 Sep, day one** — hundreds of GB. |
+| | **M4** (BiT change mask, LEVIR-CD/WHU-CD + CDVQA) | Small, fast, well-trodden. |
+| | **M3** (Grounding-DINO-T, light VRSBench-refs fine-tune) | Cheap; delivers the most visually convincing demo. |
+| **No separate train** | **M5** | It *is* M1 in 2-image mode. Do not budget a separate run. |
+| | **M2** | Prompt-engineered Qwen2.5-7B-4bit, no fine-tune. RuleRouter always underneath. |
+| **Must ship (path, not model)** | **Cross-modal optical–SAR** | PS *principal focus* — cannot be a stretch item. Ship it as **M1 in 2-image mode (optical+SAR) + M7 per-pixel masks + the §7.3 ablation**, trained on BE.txt S1–S2 triplets. This is a real, trained, cross-modal path with no extra run. |
+| **Stretch (upgrade only)** | **M6** dual-tower + Q-Former | An *architectural upgrade* to the above, not the way the mandate is met. Build only if GPU days remain after 15 Sep. Its absence must never leave C3 unserved. |
+| | **M7** | Reframed — see §7.2. Patch-level only. |
+
+**Three trained models, not seven.** The remaining mandatory capabilities are met by reuse
+(M1 multi-image) and honest reframing, not by additional runs.
+
+**Guard against the obvious failure mode:** because M1 serves single-image *and* both paired
+modes, it is tempting to tune it on single-image data and let the paired modes ride along. Do
+not. Weight the training mix toward **2-image samples (BE.txt S1–S2 triplets, CDVQA, TAMMI)**
+and gate M1 on paired-task metrics, per the PS priority statement above.
+
+### 7.2 M7 — per-pixel IS supported (earlier "patch-level only" claim was wrong)
+
+> **Retraction.** A previous revision of these docs asserted that *"BigEarthNet v2 ships
+> patch-level multi-labels, not per-pixel masks"* and downgraded M7 to a presence classifier.
+> **That was incorrect.** Verified against the official Zenodo record (v2.0.0, DOI 10.5281/
+> zenodo.10891137): BigEarthNet v2.0 ships **`Reference_Maps.tar.zst` (282.4 MB) — pixel-level
+> reference maps** derived from CORINE CLC2018 (v2020_u1), explicitly *"making the dataset
+> suitable for pixel- and scene-based learning tasks."* Per-pixel built-up/water masks are
+> therefore **directly derivable** by collapsing the 19 CLC classes into the two target classes.
+
+**Position (corrected):** M7 **is** a dense segmentation model (dual-input UNet++, optical + SAR),
+trained on the BE v2 reference maps. This also restores a real spatial change/extent overlay for
+the PS query *"identify built-up and water-covered regions"* — an actual mask, not boxes.
+
+**But keep the metric honest.** The old **mIoU ≥ 0.80 gate remains unjustified** — that is a
+strong number for two-class RS segmentation from 10 m CLC-derived labels, whose polygon
+boundaries are coarse relative to pixel size. Set the gate at **mIoU ≥ 0.60 (built-up/water mean)
+as pass, ≥ 0.70 as good**, and report per-class IoU separately (water typically scores well
+above built-up). Report the number you actually get.
+
+**Zero-budget note:** the reference maps are only 282 MB, but they are useless without the
+imagery (S1 54.4 GB + S2 63.3 GB = 118 GB total). See `budget.md` §3 for the subset strategy —
+M7 trains on a few thousand patches, not 549,488.
+
+### 7.3 Optical / SAR / fused ablation view (cheap, high judging yield)
+
+The single most convincing proof that SAR is actually used — and not silently ignored — is a
+three-way comparison rendered in the UI and the PDF:
+
+```
+Built-up detection, tile 3/8
+  optical only : 0.72
+  SAR only     : 0.68
+  optical+SAR  : 0.89
+```
+
+Produced by running the same head three times with the SAR tower zeroed, the optical tower
+zeroed, and both live. **Only ever display numbers that come from real model outputs** — never
+illustrative figures. Until M1/M6 are trained, this panel stays hidden rather than mocked.
 
 **Why Qwen2-VL-2B:** native multi-image input (one backbone for single + bi-temporal + optical–SAR), dynamic resolution (tile-friendly, C7-safe), LoRA-trainable on one 24 GB GPU, vLLM-served, strong bbox-format support.
 
@@ -179,6 +294,12 @@ Trace persisted (SQLite) → UI + PDF
 
 ## 9. Inference serving & deployment
 
+> **⚠ Superseded for the actual build by `budget.md`.** Zero cash budget. Actual hardware:
+> **RTX 4050 6 GB laptop + 5 TB cloud + free Kaggle/Colab 16 GB**. The 2×24 GB table below is
+> the *production target*, not the 5/20 Sep plan.
+> Real plan: **M1 QLoRA on Kaggle 16 GB; M3/M4/M7 trained locally on the 4050; all serving live
+> on the 4050 with lazy-load-and-evict; no vLLM; M6 cut.** See `budget.md` §4–§6.
+
 | Model | Memory (serving) | Runner | GPU |
 |---|---|---|---|
 | M1 Qwen2-VL-2B (bf16+LoRA) | ~6 GB | vLLM (multi-image) | A |
@@ -196,6 +317,10 @@ Trace persisted (SQLite) → UI + PDF
 - Concurrency: 1 request at a time (queue, 2nd user sees position) — matches single-user judging.
 
 ## 10. Latency budgets (1024² image, 4090, median)
+
+> **Actual targets on the real demo machine (RTX 4050 6 GB) are in `budget.md` §5:**
+> single ≤10 s · grounding ≤8 s · change ≤20 s · cross-modal ≤20 s. The 4090 table below is the
+> production reference.
 
 | Stage | Target |
 |---|---|

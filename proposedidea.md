@@ -7,7 +7,15 @@
 **PS:** SIH 2026 — Problem Statement **26167** (ISRO) · Agentic Remote-Sensing
 Question-Answering over optical + SAR imagery
 **Submission deadline:** **5 Sep, 10:00** (Round-1 pitch)
-**Competition/full-build target:** retains the 20 Sep / post-selection window.
+**Final submission:** **20 Sep** — PPT **+ code + models**. This is a *hard deliverable*, not
+"post-selection someday" work.
+
+> ### v1.1 correction to this document
+> An earlier revision framed everything after 5 Sep as optional "phase 2 / post-selection".
+> **That is wrong.** 20 Sep is a graded submission requiring running code and trained weights.
+> The de-scoping below is still correct **for the 5 Sep pitch only**; it is *not* a decision to
+> skip the build. The 15-day build plan is `checkpoints.md` §G Window B, and the model scope is
+> `architecture.md` §7.1 — **three trained models (M1, M4, M3)**, not seven and not zero.
 
 ---
 
@@ -25,8 +33,9 @@ The submission reality is now confirmed:
   presentation/PPT.**
 - A working **prototype earns bonus/extra points**, but is **not** the primary
   graded artifact.
-- The **20 Sep** build window (and the 5–6 week planning horizon) is **round-2 /
-  post-selection** work.
+- The **20 Sep** deadline is the **final submission: PPT + code + models** — a hard graded
+  deliverable, not optional follow-on work. The 5–6 week planning horizon in
+  `satquery-ai-architecture.md` §2.8 is superseded; the real build window is **15 days**.
 
 **Conclusion:** Our *planning documents* are still the right long-term architecture,
 but they are the **wrong scope for a 1.5-day pitch.** Continuing to treat a
@@ -65,8 +74,8 @@ plans over a predefined registry of specialist tools, executes them, and returns
 answer with an auditable execution trace, calibrated confidence, visual evidence and a
 downloadable report.*
 
-Keep the **full architecture** as the long-term plan (post-selection), but for the
-**5 Sep pitch** deliver a **thin end-to-end prototype** that demonstrates —
+Keep the **full architecture** as the 20 Sep build target (scoped by `architecture.md` §7.1 to
+three trained models), and for the **5 Sep pitch** deliver a **thin end-to-end prototype** that demonstrates —
 with lightweight/heuristic model outputs rather than trained networks — exactly the
 graded novelty.
 
@@ -82,23 +91,36 @@ graded novelty.
 | 7 | Downloadable PDF/HTML report | weasyprint / templated |
 | 8 | Simple UI (stream trace panel + overlays) | Streamlit or Gradio |
 
-### What is deliberately de-scoped to phase 2 (post-selection)
-- Real fine-tuned RS-VLM (M1), grounding (M3), change (M4/M5), fusion (M6), UNet++ (M7).
-- Full dataset prep (BE.txt, VRSBench, RSVQA, CDVQA, QAG-360K, TAMMI, ChangeChat-105k…).
-- Benchmark zero-shot → adapted evaluation tables.
-- GPU serving, Docker weights tarball, latency budget tuning.
+### What is deliberately de-scoped **out of the 5 Sep pitch** (and into the 15-day Window B build)
+| Item | 5 Sep | 20 Sep |
+|---|---|---|
+| M1 RS-VLM LoRA | slide only | **must ship** |
+| M4 change / M3 grounding | heuristic | **must ship** |
+| M5 change-VQA | heuristic | M1 2-image mode (no separate run) |
+| M6 fusion | slide only | stretch — M1 two-image + ablation satisfies C3 |
+| M7 | slide only | patch-level classifier (see arch §7.2) |
+| Dataset prep (BE.txt, VRSBench, RSVQA, CDVQA, TAMMI) | — | **must ship**; BE.txt download starts 5 Sep |
+| Zero-shot → adapted benchmark table | — | **must ship** (this is the C5 compliance proof) |
+| Docker, weights tarball, latency tuning | — | **must ship** |
 
-**Rebalanced priority for the remaining time (3–5 Sep):**
-1. **Today (3 Sep):** build the thin prototype skeleton; nail the pitch narrative.
+**Critical continuity rule:** the thin prototype is *not* a throwaway. Build it with the real
+registry, real ingestion, real trace store and real tool contract, with stubs behind that
+contract. Then Window B is "swap heuristics for trained models", not "start over".
+
+**Rebalanced priority for the remaining time (3–5 Sep)** — full task split in `checkpoints.md` §G Window A:
+1. **Today (3 Sep):** 3 people start the deck; 2 people build the thin prototype skeleton.
 2. **4 Sep:** polish the deck; make the demo bulletproof (cached-answer kill-switch).
-3. **5 Sep 09:00:** dry run; **10:00** submit/present.
+3. **5 Sep 09:00:** dry run; **10:00** present.
+
+The deck is the graded artifact and needs ~30 collective hours. Do not put all five people on
+the prototype for bonus points.
 
 ---
 
 ## 4. Honesty on stage (recommended phrasing)
 
 Present the prototype as: *"Architecture demonstrated end-to-end; specialist models
-are fine-tuned post-selection."* Do **not** claim the heuristic vision outputs are
+are fine-tuned for the 20 Sep submission."* Do **not** claim the heuristic vision outputs are
 trained results. This reads as a strength (honest, well-scoped, feasible) and protects
 us in the Q&A.
 
@@ -115,9 +137,9 @@ us in the Q&A.
 - **M6 (dual-tower fusion) demoted to stretch:** satisfy mandatory cross-modal
   (A1.6) with **M1 in 2-image mode** (optical + SAR as two images) trained on
   TAMMI + BE.txt S1–S2–text. M6 remains an optional upgrade, not a critical-path item.
-- **Timeline contradiction:** the "5–6 weeks before on-site" and "20 Sep" windows
-  are **phase 2**; re-frame (not re-number) docs to mark the 5 Sep pitch as a
-  distinct, smaller deliverable.
+- **Timeline:** the "5–6 week" plan in `satquery-ai-architecture.md` §2.8 is **superseded**
+  (marked as such in v1.1). Real calendar = 5 Sep pitch → 15-day build → 20 Sep final.
+  Seven trained models do not fit in 15 days; the triage to three is binding.
 
 ---
 

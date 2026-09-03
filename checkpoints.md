@@ -2,9 +2,19 @@
 
 **Purpose:** nothing slips. Update statuses daily; owner + date on every change.
 **Legend:** ☐ open · ◐ in progress · ☑ done · ✗ blocked (write why) · ➖ N/A
-**Companions:** `architecture.md` · `design.md` · `satquery-ai-architecture.md`
+**Companions:** `ps-26167.md` (**official PS — source of truth**) · `budget.md` (**₹0 constraint**) · `architecture.md` · `design.md` · `satquery-ai-architecture.md`
 
-> Today: **3 Sep 2026**. PS header date: **20 Sep 2026** (assume = registration/event date — **confirm**, see §0).
+> Today: **3 Sep 2026**.
+>
+> **Two deadlines, two graded artifacts — do not conflate them:**
+>
+> | Window | Ends | Graded | Prototype |
+> |---|---|---|---|
+> | **A** | **5 Sep, 10:00** | **PPT** | bonus points only |
+> | **B** | **20 Sep** | **PPT + code + models** | mandatory |
+>
+> Window A ≈ 46 h. Window B = 15 days. See §G for the split schedule and
+> `architecture.md` §7.1 for the binding model triage (3 trained models, not 7).
 
 ---
 
@@ -12,16 +22,16 @@
 
 | # | Question | Why it matters | Status |
 |---|---|---|---|
-| 0.1 | Exact on-site/competition date; what "20 Sep 2026" means in the PS header | schedules training runs | ☐ |
-| 0.2 | Full PS PDF — the evaluation table is a placeholder in the circulated text; exact benchmark test splits + metric names/weights | eval harness targets | ☐ |
-| 0.3 | Hardware at venue: GPU available? Can we bring own laptop+GPU? | serving config (1× vs 2×24 GB) | ☐ |
+| 0.1 | ~~What "20 Sep 2026" means~~ — **RESOLVED: 5 Sep 10:00 = Round-1 PPT pitch (prototype = bonus); 20 Sep = final submission of PPT + code + models.** | schedules everything | ☑ |
+| 0.2 | Evaluation-criteria table — **CONFIRMED as a placeholder in the official PS itself** ("Add 'Evaluation/Judging Criteria' table here"). Metric names + weights are genuinely unpublished, not just missing from our copy. Watch for an amendment; do not block on it. | eval harness targets | ◐ |
+| 0.3 | Hardware at venue — **assume none provided.** ₹0 budget: we bring our own laptop, CPU inference. Confirm Kaggle/Colab free-tier quotas are still live (they change without notice). | `budget.md` §4–§5 | ◐ |
 | 0.4 | Internet at judging/eval time? | assume **none**; verify | ☐ |
 | 0.5 | How is the web app judged — our machine, their infra, or submitted build? | Docker packaging + port binding | ☐ |
 | 0.6 | How are benchmark test subsets run — our script on our hardware, or theirs on ours? | `eval/` CLI contract | ☐ |
 | 0.7 | Any model-size/latency limits stated in full PS? | M1 2B vs 7B decision | ☐ |
 | 0.8 | Is a recorded video an accepted demo backup? | kill-switch plan | ☐ |
-| 0.9 | RSVQA exact split + file layout (official link in PS is cut in our copy) | data prep | ☐ |
-| 0.10 | BigEarthNet.txt: confirm HF `BIFOLD-BigEarthNetv2-0/BigEarthNet.txt` layout, split files, license (CC-BY 4.0), and whether InternVL adapter code is released | M1/M6 training | ☐ |
+| 0.9 | RSVQA + VRSBench exact splits — **the official PS Dataset Link text is itself truncated mid-sentence ("VRSBench — for")**. Links are incomplete in the source, not our copy. Use the papers' canonical splits and document the choice. | data prep | ◐ |
+| 0.10 | ~~BigEarthNet.txt layout/license~~ — **RESOLVED:** single `BigEarthNet.txt.parquet` (467 MB, 9.55M rows), license **CDLA-Permissive-1.0** (not CC-BY), `split` column carries train/val/test, official `ben_txt_datamodule.py` loader shipped in-repo. Remaining: check for released InternVL adapters. | M1 training | ◐ |
 
 ---
 
@@ -29,15 +39,19 @@
 
 Every PS "shall/must" → where handled → evidence artifact → status.
 
+> **PS priority (verbatim):** *"Single-image understanding is a mandatory **baseline**, while the
+> **principal focus** is joint reasoning over paired cross-modal and multitemporal imagery."*
+> A1.4 and A1.6 therefore carry more weight than A1.2/A1.3. Budget accordingly.
+
 ### A.1 Mandatory functional scope
 | # | PS requirement | Handled by | Evidence | Status |
 |---|---|---|---|---|
-| A1.1 | ≥1 visual/VL component fine-tuned/adapted on BigEarthNet.txt or open RS data | M1 (also M3,M4,M6,M7) LoRA | training logs + **zero-shot vs adapted** benchmark table + adapter hashes in report | ☐ |
+| A1.1 | ≥1 visual/VL component fine-tuned/adapted on BigEarthNet.txt or open RS data — **must be OUR weights on OUR GPU; a hosted generic API (OpenRouter/HF Inference) fails PS P12** (`budget.md` §6.2b) | M1 (also M3,M4,M7) LoRA | training logs + **zero-shot vs adapted** benchmark table + adapter hashes in report | ☐ |
 | A1.2 | Single-image **VQA mandatory** | `vqa` (M1) | demo Q2 + VRSBench/RSVQA test numbers | ☐ |
 | A1.3 | + captioning **or** grounding (we do both) | `caption` (M1), `ground` (M3) | demo Q1, Q3 + numbers | ☐ |
 | A1.4 | Bi-temporal change description **or** change-VQA mandatory | `change_map`+`change_vqa` (M4,M5) | demo Q5 + CDVQA test numbers | ☐ |
 | A1.5 | Spatial change map where reference masks available | M4 mask overlay + facts | overlay in UI + PDF | ☐ |
-| A1.6 | Cross-modal optical–SAR pair analysis | `xmodal_*` (M6,M7) | demo Q4 + BE.txt benchmark-split numbers | ☐ |
+| A1.6 | Cross-modal optical–SAR: extract **complementary** information from a co-registered pair | `xmodal_*` via **M1 2-image mode + M7 masks + §7.3 ablation** (M6 = optional upgrade) | demo Q4 + BE.txt benchmark-split numbers + **ablation proving SAR contributes** | ☐ |
 | A1.7 | Agentic orchestration: select/sequence/execute specialist models per query + inputs | Planner+Registry+Executor | **compound demo Q6** (multi-step) + trace | ☐ |
 
 ### A.2 Agent controller duties (PS bullet list)
@@ -71,8 +85,8 @@ Every PS "shall/must" → where handled → evidence artifact → status.
 ### A.5 Mandatory demonstrations (demo script = these, verbatim PS queries)
 | # | Demo | PS query | Status |
 |---|---|---|---|
-| A5.1 | single-image VQA | "What objects are visible?" (VQA) | ☐ |
-| A5.2 | additional single-image task (caption + grounding) | "Describe the land-cover and major objects…" / "Highlight the water body…" | ☐ |
+| A5.1 | single-image VQA **(mandatory baseline)** | PS gives no verbatim single-image VQA query — use a benchmark-style one, e.g. "Is there a water body in this image?" / "What is the dominant land-cover type?" | ☐ |
+| A5.2 | additional single-image task (caption + grounding) | "Describe the land-cover and major objects…" / "Highlight the water body referred to in the query." | ☐ |
 | A5.3 | multitemporal change understanding | "What changed between these two dates, and where did the change occur?" | ☐ |
 | A5.4 | optical–SAR pair analysis | "Use the optical and SAR images together to identify built-up and water-covered regions." | ☐ |
 | A5.5 | agentic orchestration (compound, multi-step) | "Describe both scenes, tell me what changed, and highlight the new built-up areas." | ☐ |
@@ -84,7 +98,7 @@ Every PS "shall/must" → where handled → evidence artifact → status.
 | A6.1 | Interactive GUI/web app + agentic RS-AI backend | ☐ |
 | A6.2 | Code (repo, README, 1-command run) | ☐ |
 | A6.3 | Models (weights + cards + hashes) | ☐ |
-| A6.4 | Tests (pytest unit + integration + test matrix §E) | ☐ |
+| A6.4 | Tests — **PS deliverable names "test" explicitly**: pytest unit + integration + test matrix §E, with a runnable command and committed output | ☐ |
 | A6.5 | Demonstration (live + ≤5 min video backup) | ☐ |
 | A6.6 | Eval runs on prescribed public benchmark test subsets (logs + tables) | ☐ |
 
@@ -102,7 +116,7 @@ Every PS "shall/must" → where handled → evidence artifact → status.
 
 | Dataset | Source | Scale | Download | License | QC (format, splits, sample render) | Converter → unified JSONL | Stored @ /data/datasets |
 |---|---|---|---|---|---|---|---|
-| **BigEarthNet.txt** (PRIMARY) | HF `BIFOLD-BigEarthNetv2-0/BigEarthNet.txt` | 229,114 train pairs (~9.6M ann. total); stratified **100K subset** for SIH timeline | ☐ | CC-BY 4.0 ☐ | ☐ | ☐ | ☐ |
+| **BigEarthNet.txt** (PRIMARY) | HF `BIFOLD-BigEarthNetv2-0/BigEarthNet.txt` — **single 467 MB parquet, 9.55M rows, text only** | take **all rows**; join to a stratified ~40K-patch imagery subset via `patch_id` | ☐ | CC-BY 4.0 ☐ | ☐ | ☐ | ☐ |
 | VRSBench | github.com/lx709/VRSBench | 29,614 img, 123,221 QA, 52,472 refs | ☐ | ☐ | ☐ (verify official train/test split assignment) | ☐ | ☐ |
 | RSVQA | PS link / official repo | ~20K QA | ☐ | ☐ | ☐ | ☐ | ☐ |
 | CDVQA | github.com/YZHJessica/CDVQA | 2,968 pairs (512²), 122K QA | ☐ | ☐ | ☐ | ☐ | ☐ |
@@ -114,7 +128,7 @@ Every PS "shall/must" → where handled → evidence artifact → status.
 | Domain-gap test set: Cartosat-2S samples + RISAT samples (or proxies: ISPRS Vaihingen ~0.3 m, Daudt/SAR-GSB) | ISRO/RESRDA + open sources | ~20 pairs | ☐ | ☐ | ☐ | — | ☐ |
 
 Data rules:
-- ☐ Disk budget reserved (≈1.5–3 TB); checksums `manifest.json` written at download
+- ☐ Disk: **5 TB available**, but **the 118 GB pull is now optional** — BE.txt is a 467 MB parquet; profile it with DuckDB, select patch_ids, fetch only ~10–15 GB of imagery (`budget.md` §3.0). Working set to a Kaggle Dataset by D3.
 - ☐ Benchmark **test splits never enter training** (track file lists in `eval/splits.json`)
 - ☐ `docs/datasets.md` written: per-dataset license + usage + citation (required for submission)
 
@@ -132,7 +146,7 @@ Per model: base weights ☐ · adapter/weights path ☐ · training config commi
 | M4 Change backbone | change_map | BiT (ViT-B) | QAG-360K + CDVQA + LEVIR-CD | CDVQA change-map IoU ≥ baseline (VisTA 17.7 mIoU ref) | ☐ |
 | M5 Change-VQA | change_vqa | M1 2-image | CDVQA + QAG-360K + ChangeChat-105k | CDVQA-test EM ≥ VisTA-text-level ref (62.5) | ☐ |
 | M6 Fusion | xmodal | dual ViT + Q-Former | BE.txt S1–S2–text + TAMMI | BE.txt bench-split avg ≥ best single-modality; TAMMI VQA +≥5 vs optical-only | ☐ |
-| M7 Dual UNet++ | xmodal_mask | scratch | BE v2 LULC maps | built-up/water mIoU ≥ 0.80 on holdout | ☐ |
+| M7 Dual UNet++ | xmodal_mask | ImageNet-init encoder | BE v2 **pixel-level reference maps** (CLC2018) + S1/S2 | built-up/water **mIoU ≥ 0.60 pass / ≥ 0.70 good** (the old ≥0.80 gate was unjustified; report per-class IoU — see arch §7.2) | ☐ |
 
 - ☐ M1: confirm whether BE.txt authors released InternVL adapter/code — if yes, rerun gate with InternVL2.5-2B and pick winner
 - ☐ All adapters recorded with SHA-256 in `models/MODEL_CARDS.md`
@@ -169,7 +183,7 @@ Per model: base weights ☐ · adapter/weights path ☐ · training config commi
 - ☐ `docker compose up` cold start <10 min; `/warmup` loads all weights
 - ☐ Offline verified: egress blocked → full run works, zero external calls
 - ☐ Latency budgets (arch §10): single ≤8 s, change ≤15 s, xmodal ≤15 s (median, p95 logged)
-- ☐ 1×24 GB fallback config works (time-sliced B-tools)
+- ☐ **RTX 4050 6 GB run works** (`budget.md` §5) — lazy-load-and-evict, no OOM across all 6 demo flows back-to-back; `--device cpu` path also verified for judges without a GPU
 
 ---
 
@@ -179,7 +193,7 @@ Per model: base weights ☐ · adapter/weights path ☐ · training config commi
 |---|---|---|---|---|
 | E1 | 1 optical GeoTIFF | "Describe the land-cover and major objects…" | caption + facts; trace ok | ☐ |
 | E2 | 1 optical GeoTIFF | VQA ("What is the dominant cover?") | constrained answer + conf | ☐ |
-| E3 | 1 optical | "Highlight the water body…" | bbox overlay + label | ☐ |
+| E3 | 1 optical | "Highlight the water body referred to in the query." | bbox overlay + label | ☐ |
 | E4 | 1 SAR GeoTIFF | "Describe this image." | caption; modality=SAR stated | ☐ |
 | E5 | 2 optical, Δt=1032 d | "What changed… and where?" | change map + answer with locations | ☐ |
 | E6 | 2 optical, Δt>0 | "Has built-up increased, decreased, or remained unchanged?" | mask-computed number + narration | ☐ |
@@ -204,41 +218,95 @@ Per model: base weights ☐ · adapter/weights path ☐ · training config commi
 | Single VQA | VRSBench + RSVQA test | exact match / soft | | | ☐ |
 | Change VQA | CDVQA test | exact match | | | ☐ |
 | Change map | CDVQA / QAG-360K holdout | IoU / F1 / mIoU | | | ☐ |
-| Cross-modal | BE.txt benchmark split (1,082 pairs) | 15-task suite + built-up/water mIoU | | | ☐ |
+| Cross-modal | BE.txt benchmark split (1,082 pairs) | 15-task suite + built-up/water mIoU + **optical/SAR/fused ablation** (arch §7.3) | | | ☐ |
 
 - ☐ Eval CLI reproduces all rows: `python -m eval.run --split <name> --out eval/results/`
 - ☐ Results tables rendered into report + final submission doc
 
 ---
 
-## G. Schedule (3 Sep → 20 Sep; adjust per §0.1)
+## G. Schedule — two windows
 
-**Week 1 (3–9 Sep): data + skeleton**
-- ☐ D1: downloads started (BE.txt first — largest); §0 questions raised
-- ☐ D2: repo scaffold (arch §12) + Docker skeleton; ingest service + unit tests
-- ☐ D3: converters for BE.txt / VRSBench / RSVQA / CDVQA; QC render checks
-- ☐ D4: eval harness + **zero-shot baselines** for M1/M3 on VRSBench/RSVQA
-- ☐ D5: tiling + coreg + modality detection done; tool-schemas + registry.yaml
-- ☐ D6: planner suite (200 queries) + guardrail + fallback router (rule-only ok)
-- ☐ D7: buffer / fix list
+### WINDOW A — now → 5 Sep 10:00 (~46 h). Graded artifact = **the PPT**.
 
-**Week 2 (10–16 Sep): models (the heavy week)**
-- ☐ D8: **M1 LoRA run starts** (100K BE.txt subset; 2–3 epochs; nightly eval on holdout)
-- ☐ D9: M4 (BiT on QAG-360K+CDVQA) + M7 (UNet++ on BE v2) runs
-- ☐ D10: M3 (G-DINO fine-tune) + M6 (fusion on BE.txt S1–S2 + TAMMI)
-- ☐ D11: M5 (M1 2-image head on CDVQA+QAG-360K+ChangeChat) — needs M1 stage-1 ckpt
-- ☐ D12: eval gates (§C) → iterate worst model (one more epoch max, else accept)
-- ☐ D13: tool wrappers (all 9) + confidence utilities (T5) + trace store
-- ☐ D14: integration: agent + tools end-to-end on all E-matrix rows
+**Split the team. Do not let all five people touch the deck.**
 
-**Week 3 (17–20 Sep): system + demo readiness**
-- ☐ D15: frontend (stage + overlays + trace + metadata cards)
-- ☐ D16: PDF report + edge-case cards + demo mode
-- ☐ D17: full test matrix §E green; offline check; latency check; Docker cold-start <10 min
-- ☐ D18: **prescribed benchmark runs** (§F) + demo rehearsal #1 + video recording
-- ☐ D19–20: buffer; submission package (per §I); demo rehearsal #2
+**Deck squad (3 people)** — the deck is graded and needs ~30 collective hours, not 6:
+- ☐ PS 26167 → six mandatory capabilities, one slide each, no filler
+- ☐ `architecture.md` §3 system diagram — full slide, your strongest asset
+- ☐ M1–M7 model × dataset table — the proof you are not a GPT wrapper
+- ☐ **Execution-trace mockup slide** — the graded novelty; show it literally
+- ☐ SAR-is-not-RGB slide (`architecture.md` §5.1) — differentiator vs other teams
+- ☐ Honest 5 → 20 Sep plan slide with the 3-model triage. Judges reward a credible
+      15-day schedule over a claim that it is already finished.
+- ☐ Q&A prep: "which base model / what data / what if the planner fails / how is SAR handled"
 
-*(If on-site is later than 20 Sep: use the extra weeks for full-data M1 epochs, M6 second round, and eval hardening.)*
+**Prototype squad (2 people)** — thin, but *real where it counts*; this is Window B's skeleton:
+- ☐ REAL: rasterio ingestion — format/CRS/bands/modality/co-reg/tiling → Input Inventory
+- ☐ REAL: `registry.yaml` + `GET /tools`
+- ☐ REAL: **RuleRouter only** (canonical table, arch §6) — *skip the LLM planner entirely*
+- ☐ REAL: SQLite trace store + trace panel
+- ☐ REAL: Streamlit/Gradio UI — upload, answer card, overlay toggles, trace open by default
+- ☐ HEURISTIC (declare it): change mask via NDVI/NDBI delta + threshold; precomputed
+      grounding boxes on 3–5 demo scenes; canned confidence
+- ☐ Cached-answer **kill switch** — non-negotiable
+- ☐ On-stage line: *"the orchestration layer is real; specialist models are fine-tuned by 20 Sep"*
+
+**4 Sep:** deck polish + demo hardening. **5 Sep 09:00:** dry run. **10:00:** present.
+
+---
+
+### WINDOW B — 5 Sep → 20 Sep (15 days). Graded artifact = **PPT + code + models**.
+
+Model scope is fixed by `architecture.md` §7.1: **train M1, M4, M3. Reuse M1 for M5. Prompt-only
+M2. M6 stretch. M7 patch-level.**
+
+**D1–D4 (5–8 Sep) — data + M1 launch**
+- ☐ **BE.txt download starts hour one** (hundreds of GB — this is the critical path)
+- ☐ Repo scaffold (arch §12); swap the Window-A prototype's stubs behind the real contract
+- ☐ Converters: BE.txt / VRSBench / RSVQA / CDVQA → unified JSONL; QC render
+- ☐ Eval harness + **zero-shot baselines** (this is half of your C5 compliance table)
+- ☐ **M1 LoRA run starts by D4** on the stratified 100K subset
+
+**D5–D8 (9–12 Sep) — M3, M4, and live swap-in**
+- ☐ M4 BiT on LEVIR-CD/WHU-CD + CDVQA
+- ☐ M3 Grounding-DINO-T light fine-tune on VRSBench refs
+- ☐ M7 patch classifier (cheap, runs alongside)
+- ☐ Real tools replace heuristics in the registry, one at a time, contract unchanged
+- ☐ M1 nightly holdout eval; iterate if the gate (§C) misses
+
+**D9–D12 (13–16 Sep) — agent, ablation, report**
+- ☐ LLM planner (M2) layered *on top of* RuleRouter; fallback rate measured on the 200-query suite
+- ☐ M5 = M1 2-image mode wired for change-VQA
+- ☐ **Optical/SAR/fused ablation view** (arch §7.3) — real numbers only, else hide the panel
+- ☐ Abstention path: low confidence / below min-area → "insufficient evidence", not a guess
+- ☐ PDF report + edge-case cards + full E-matrix
+- ☐ M6 dual-tower **only if** GPU days remain
+
+**D13–D15 (17–19 Sep) — evidence, freeze, package**
+- ☐ Prescribed benchmark runs → §F **zero-shot → adapted** table (this *is* the C5 proof)
+- ☐ Offline check, latency check, `docker compose up` cold start < 10 min on a clean machine
+- ☐ Demo video ≤ 5 min; model cards + hashes; freeze versions
+- ☐ Update the deck with real numbers
+
+**20 Sep — submit with a day of slack. Do not schedule work into this day.**
+
+---
+
+## G.1 Team division (5 people)
+
+Ownership is per-person so nothing is orphaned. Window A roles in brackets.
+
+| Role | Owns | Window A |
+|---|---|---|
+| **RS/ML lead** | M1 RS-VLM (LoRA, BE.txt subset), VQA + captioning, adaptation evidence table | [deck: model & dataset slides] |
+| **Change/fusion engineer** | M4 change detection, M5 (M1 2-image), M6 stretch, M7 patch classifier, ablation view | [prototype: heuristic change mask] |
+| **Data/GIS engineer** | GeoTIFF ingestion, CRS, modality detection, **SAR dB/speckle/pol pipeline (arch §5.1)**, co-registration, tiling, overlay geo-mapping | [prototype: real rasterio ingestion] |
+| **Backend/orchestration** | FastAPI, `registry.yaml`, planner + guardrail + RuleRouter, executor, trace store, PDF report | [prototype: registry + RuleRouter + trace] |
+| **Frontend/eval lead** | UI, overlays, trace panel, benchmark harness + §F tables, demo video, deck | [deck owner + demo script] |
+
+Cross-cutting: the **eval lead owns §F** and blocks submission until the zero-shot → adapted
+table is filled with reproduced logs.
 
 ---
 
@@ -290,11 +358,11 @@ Per model: base weights ☐ · adapter/weights path ☐ · training config commi
 | # | Risk | Trigger | Action | Owner |
 |---|---|---|---|---|
 | J1 | BE.txt download slow/corrupt | D3 not fully down | partial 50K subset first; fallback: reBEN/Sentinel2Cap + BE v2 with generated text | ☐ |
-| J2 | GPU shortage | <2×24 GB by D8 | 4-bit everywhere; M1 2B only; subset → 60K; queue single-request | ☐ |
+| J2 | GPU limits — **baseline, not a risk: 6 GB local + free 16 GB notebooks** | always | M1 QLoRA on Kaggle (won't fit 6 GB); M3/M4/M7 local on 4050; M6 cut; stagger 5 Kaggle accounts (`budget.md` §4, §7) | ☐ |
 | J3 | M1 underperforms gate | D12 numbers < target | more epochs on BE.txt VQA slice; check template-caption bias; raise RSVQA weight | ☐ |
 | J4 | Planner unstable in demo | fallback rate >5 % on suite | simplify plan JSON (tool+params only); raise rule-router share | ☐ |
 | J5 | Hidden set 1 m Cartosat / L-band RISAT surprises | §A7.1 test fails on proxies | tiling already; add band-config presets; re-test on real samples ASAP | ☐ |
-| J6 | Demo-day GPU failure | any crash during demo | cached answers + video (H. kill-switch) | ☐ |
+| J6 | Demo-day GPU failure / 4050 OOM or thermal throttle | any crash during demo | lazy-load-evict; plug in + close all apps; cached answers + video (H. kill-switch) | ☐ |
 | J7 | Co-registration surprises in hidden set | offset > 2 px on eval samples | auto-warp already; else polite COMPAT_REPORT (never crash) | ☐ |
 | J8 | Time overrun | G schedule slips >2 d | cut: ChangeChat-105k, ADE20K-GS, M7 second class; keep M1/M4/M5/M6 | ☐ |
 | J9 | Metrics/weights unknown (PS table missing) | still unknown at D18 | standard metrics + self-evident report; ask §0.2 | ☐ |

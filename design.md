@@ -1,7 +1,11 @@
 # SatQuery AI — Design (UI / UX, API, Data Schemas, Report)
 
-**Version:** 1.0 — 3 Sep 2026
-**Companion docs:** `architecture.md` · `checkpoints.md` · `satquery-ai-architecture.md`
+**Version:** 1.1 — 3 Sep 2026
+**Companion docs:** `ps-26167.md` (**official PS — source of truth**) · `budget.md` (**₹0 constraint**) · `architecture.md` · `checkpoints.md` · `satquery-ai-architecture.md` · `proposedidea.md`
+
+> **Scope note:** §1–§13 describe the **20 Sep** system. For the **5 Sep pitch**, build only:
+> upload + inventory cards, answer card, overlay toggles, trace panel, demo mode
+> (`checkpoints.md` §G Window A). Streamlit/Gradio is acceptable then; React by 20 Sep.
 
 ---
 
@@ -82,7 +86,7 @@ any → REJECTED (compatibility) | FAILED (retryable, message + retry button)
 |---|---|---|
 | `bbox` | grounding boxes | cyan `#00E5FF`, label + score |
 | `mask.change.added` / `.removed` | bi-temporal change | red `#E53935` / yellow `#FDD835` |
-| `mask.built_up` / `mask.water` | xmodal joint seg | grey-orange `#FB8C00` / blue `#1E88E5` |
+| `mask.built_up` / `mask.water` | xmodal joint per-pixel segmentation (arch §7.2) | grey-orange `#FB8C00` / blue `#1E88E5` |
 | `heatmap` | attention/evidence | viridis, 50 % blend |
 | `annotations` | "where did change occur" centroids + labels | white dot + text halo |
 
@@ -105,6 +109,40 @@ Table: `# | step | tool (version) | key params | inputs (hash) | output summary 
 - Disagreement rule (optical vs SAR conf diff > 0.3 on shared claim) → ⚠ surfaced in answer, trace, report
 - Visible in: answer card, trace rows, report §2 — (PS: "confidence information")
 
+## 7.1 Modality-ablation panel (optical / SAR / fused)
+
+Shown only for cross-modal requests. This is the clearest possible demonstration that SAR is
+genuinely contributing rather than being ignored.
+
+```
+┌ Modality contribution ────────────── built-up ┐
+│  optical only   ▓▓▓▓▓▓▓░░░  0.72              │
+│  SAR only       ▓▓▓▓▓▓░░░░  0.68              │
+│  optical + SAR  ▓▓▓▓▓▓▓▓▓░  0.89  ▲ +0.17     │
+└───────────────────────────────────────────────┘
+```
+
+- Toggle to swap the stage between the optical-only, SAR-only and fused result layers.
+- **Hard rule:** the panel renders *only* from real model outputs. If the fusion path is not
+  trained yet, the panel is **hidden entirely** — never populated with illustrative numbers.
+- Also embedded in the PDF report (§8.3).
+
+## 7.2 Abstention — "insufficient evidence"
+
+Distinct from input rejection (§11, which is about *invalid inputs*). This path fires on
+**valid inputs with weak evidence**, and is what stops the system over-claiming change:
+
+| Trigger | Response |
+|---|---|
+| Final confidence < 0.50 | Answer replaced with: *"The evidence is not strong enough to answer this reliably."* + what was seen + which tool was weak |
+| Changed area < minimum-area threshold | *"Detected differences are below the reliable-detection threshold — this may be noise, seasonal variation, or slight misalignment."* |
+| Bi-temporal, seasonal-confound flag | Change reported **with** an explicit caveat: vegetation/illumination difference cannot be separated from real land-cover change |
+| Cloud flag over the queried region | Claim downgraded; SAR evidence promoted if available; ⚠ surfaced |
+| Optical/SAR disagreement > 0.3 | Both readings shown side by side rather than one silently winning |
+
+An honest abstention is a scoring asset, not a failure. Never emit a confident number the
+pipeline cannot support.
+
 ## 8. PDF report (downloadable — mandatory deliverable element)
 
 Generated server-side (weasyprint), 5–10 pp, ≤3 MB:
@@ -112,6 +150,8 @@ Generated server-side (weasyprint), 5–10 pp, ≤3 MB:
 1. **Cover** — query, image thumbs, auto metadata (modality, extent, res, dates), request id, date
 2. **Answer** — final text, confidence badge, per-claim tool citations, facts chips
 3. **Evidence** — rendered overlays (one per layer) + attention crops + per-tool numeric outputs
+   3.3 **Modality ablation** (cross-modal requests only): optical-only / SAR-only / fused
+   scores, real outputs only — omitted entirely if the fusion path is untrained (§7.1)
 4. **Execution summary (auditable)** — task, planner, plan, per-step table: tool name+version, params, input hashes, output summary, confidence, latency, total
 5. **Appendix** — model versions + adapter hashes, environment, dataset licenses, disclaimers
 
@@ -173,7 +213,9 @@ Each code has a user-facing message + suggested fix (S5 card).
 | >10k px raster | tiling notice: "Large image: 214 tiles, ≈ 40 s" |
 | Bi-temporal without dates | works; "Dates not found — assuming upload order; direction of change may be uncertain." (directional confidence lowered) |
 | Coreg offset > 2 px | auto re-register; amber banner "Auto-aligned (offset 3.1 px)" + trace entry |
-| Low confidence answer | red badge + "limited evidence" + which tool was weak |
+| Low confidence answer | red badge + "limited evidence" + which tool was weak → **abstention copy per §7.2** |
+| Change below min-area threshold | "Differences below reliable-detection threshold — may be noise or seasonal." No area number claimed. |
+| Cloud over queried region | amber ⚠ "Optical partly cloud-affected here; SAR evidence weighted higher." |
 | Unsupported task for scope | S5 card: e.g. "trend (increased/decreased) needs two dates of the same place" |
 | PNG outside benchmark allow-list | S5 card: "PNG/JPEG accepted only for benchmark datasets (VRSBench/RSVQA/CDVQA)." |
 
