@@ -1,7 +1,7 @@
 # SatQuery AI — Design (UI / UX, API, Data Schemas, Report)
 
 **Version:** 1.1 — 3 Sep 2026
-**Companion docs:** `ps-26167.md` (**official PS — source of truth**) · `architecture.md` · `checkpoints.md` · `satquery-ai-architecture.md` · `proposedidea.md`
+**Companion docs:** `ps-26167.md` (**official PS — source of truth**) · `budget.md` (**₹0 constraint**) · `architecture.md` · `checkpoints.md` · `satquery-ai-architecture.md` · `proposedidea.md`
 
 > **Scope note:** §1–§13 describe the **20 Sep** system. For the **5 Sep pitch**, build only:
 > upload + inventory cards, answer card, overlay toggles, trace panel, demo mode
@@ -86,7 +86,7 @@ any → REJECTED (compatibility) | FAILED (retryable, message + retry button)
 |---|---|---|
 | `bbox` | grounding boxes | cyan `#00E5FF`, label + score |
 | `mask.change.added` / `.removed` | bi-temporal change | red `#E53935` / yellow `#FDD835` |
-| `presence.built_up` / `presence.water` | xmodal per-tile presence heat (patch-level — *not* a per-pixel mask, see arch §7.2) | grey-orange `#FB8C00` / blue `#1E88E5`, 40 % blend + tile grid |
+| `mask.built_up` / `mask.water` | xmodal joint per-pixel segmentation (arch §7.2) | grey-orange `#FB8C00` / blue `#1E88E5` |
 | `heatmap` | attention/evidence | viridis, 50 % blend |
 | `annotations` | "where did change occur" centroids + labels | white dot + text halo |
 

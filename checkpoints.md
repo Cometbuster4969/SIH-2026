@@ -2,7 +2,7 @@
 
 **Purpose:** nothing slips. Update statuses daily; owner + date on every change.
 **Legend:** ☐ open · ◐ in progress · ☑ done · ✗ blocked (write why) · ➖ N/A
-**Companions:** `ps-26167.md` (**official PS — source of truth**) · `architecture.md` · `design.md` · `satquery-ai-architecture.md`
+**Companions:** `ps-26167.md` (**official PS — source of truth**) · `budget.md` (**₹0 constraint**) · `architecture.md` · `design.md` · `satquery-ai-architecture.md`
 
 > Today: **3 Sep 2026**.
 >
@@ -24,7 +24,7 @@
 |---|---|---|---|
 | 0.1 | ~~What "20 Sep 2026" means~~ — **RESOLVED: 5 Sep 10:00 = Round-1 PPT pitch (prototype = bonus); 20 Sep = final submission of PPT + code + models.** | schedules everything | ☑ |
 | 0.2 | Evaluation-criteria table — **CONFIRMED as a placeholder in the official PS itself** ("Add 'Evaluation/Judging Criteria' table here"). Metric names + weights are genuinely unpublished, not just missing from our copy. Watch for an amendment; do not block on it. | eval harness targets | ◐ |
-| 0.3 | Hardware at venue: GPU available? Can we bring own laptop+GPU? | serving config (1× vs 2×24 GB) | ☐ |
+| 0.3 | Hardware at venue — **assume none provided.** ₹0 budget: we bring our own laptop, CPU inference. Confirm Kaggle/Colab free-tier quotas are still live (they change without notice). | `budget.md` §4–§5 | ◐ |
 | 0.4 | Internet at judging/eval time? | assume **none**; verify | ☐ |
 | 0.5 | How is the web app judged — our machine, their infra, or submitted build? | Docker packaging + port binding | ☐ |
 | 0.6 | How are benchmark test subsets run — our script on our hardware, or theirs on ours? | `eval/` CLI contract | ☐ |
@@ -51,7 +51,7 @@ Every PS "shall/must" → where handled → evidence artifact → status.
 | A1.3 | + captioning **or** grounding (we do both) | `caption` (M1), `ground` (M3) | demo Q1, Q3 + numbers | ☐ |
 | A1.4 | Bi-temporal change description **or** change-VQA mandatory | `change_map`+`change_vqa` (M4,M5) | demo Q5 + CDVQA test numbers | ☐ |
 | A1.5 | Spatial change map where reference masks available | M4 mask overlay + facts | overlay in UI + PDF | ☐ |
-| A1.6 | Cross-modal optical–SAR: extract **complementary** information from a co-registered pair | `xmodal_*` via **M1 2-image mode + M7 presence + §7.3 ablation** (M6 = optional upgrade) | demo Q4 + BE.txt benchmark-split numbers + **ablation proving SAR contributes** | ☐ |
+| A1.6 | Cross-modal optical–SAR: extract **complementary** information from a co-registered pair | `xmodal_*` via **M1 2-image mode + M7 masks + §7.3 ablation** (M6 = optional upgrade) | demo Q4 + BE.txt benchmark-split numbers + **ablation proving SAR contributes** | ☐ |
 | A1.7 | Agentic orchestration: select/sequence/execute specialist models per query + inputs | Planner+Registry+Executor | **compound demo Q6** (multi-step) + trace | ☐ |
 
 ### A.2 Agent controller duties (PS bullet list)
@@ -128,7 +128,7 @@ Every PS "shall/must" → where handled → evidence artifact → status.
 | Domain-gap test set: Cartosat-2S samples + RISAT samples (or proxies: ISPRS Vaihingen ~0.3 m, Daudt/SAR-GSB) | ISRO/RESRDA + open sources | ~20 pairs | ☐ | ☐ | ☐ | — | ☐ |
 
 Data rules:
-- ☐ Disk budget reserved (≈1.5–3 TB); checksums `manifest.json` written at download
+- ☐ Disk budget — **zero-budget reality: do NOT plan for 1.5–3 TB.** Subset everything; see `budget.md` §3. Full BE v2 = 118 GB, BE.txt larger still; you will use a few GB.
 - ☐ Benchmark **test splits never enter training** (track file lists in `eval/splits.json`)
 - ☐ `docs/datasets.md` written: per-dataset license + usage + citation (required for submission)
 
@@ -146,7 +146,7 @@ Per model: base weights ☐ · adapter/weights path ☐ · training config commi
 | M4 Change backbone | change_map | BiT (ViT-B) | QAG-360K + CDVQA + LEVIR-CD | CDVQA change-map IoU ≥ baseline (VisTA 17.7 mIoU ref) | ☐ |
 | M5 Change-VQA | change_vqa | M1 2-image | CDVQA + QAG-360K + ChangeChat-105k | CDVQA-test EM ≥ VisTA-text-level ref (62.5) | ☐ |
 | M6 Fusion | xmodal | dual ViT + Q-Former | BE.txt S1–S2–text + TAMMI | BE.txt bench-split avg ≥ best single-modality; TAMMI VQA +≥5 vs optical-only | ☐ |
-| M7 Dual patch-classifier | xmodal_presence | ImageNet init | BE v2 **patch-level** LULC labels | built-up/water patch **F1 ≥ 0.80** on holdout (*not* mIoU — BE v2 has no per-pixel masks, see architecture.md §7.2) | ☐ |
+| M7 Dual UNet++ | xmodal_mask | ImageNet-init encoder | BE v2 **pixel-level reference maps** (CLC2018) + S1/S2 | built-up/water **mIoU ≥ 0.60 pass / ≥ 0.70 good** (the old ≥0.80 gate was unjustified; report per-class IoU — see arch §7.2) | ☐ |
 
 - ☐ M1: confirm whether BE.txt authors released InternVL adapter/code — if yes, rerun gate with InternVL2.5-2B and pick winner
 - ☐ All adapters recorded with SHA-256 in `models/MODEL_CARDS.md`
@@ -183,7 +183,7 @@ Per model: base weights ☐ · adapter/weights path ☐ · training config commi
 - ☐ `docker compose up` cold start <10 min; `/warmup` loads all weights
 - ☐ Offline verified: egress blocked → full run works, zero external calls
 - ☐ Latency budgets (arch §10): single ≤8 s, change ≤15 s, xmodal ≤15 s (median, p95 logged)
-- ☐ 1×24 GB fallback config works (time-sliced B-tools)
+- ☐ **CPU-only laptop run works** (`budget.md` §5) — ONNX for M3/M4/M7, precomputed answers for the 5 scripted queries
 
 ---
 
@@ -218,7 +218,7 @@ Per model: base weights ☐ · adapter/weights path ☐ · training config commi
 | Single VQA | VRSBench + RSVQA test | exact match / soft | | | ☐ |
 | Change VQA | CDVQA test | exact match | | | ☐ |
 | Change map | CDVQA / QAG-360K holdout | IoU / F1 / mIoU | | | ☐ |
-| Cross-modal | BE.txt benchmark split (1,082 pairs) | 15-task suite + built-up/water patch F1 + **optical/SAR/fused ablation** (arch §7.3) | | | ☐ |
+| Cross-modal | BE.txt benchmark split (1,082 pairs) | 15-task suite + built-up/water mIoU + **optical/SAR/fused ablation** (arch §7.3) | | | ☐ |
 
 - ☐ Eval CLI reproduces all rows: `python -m eval.run --split <name> --out eval/results/`
 - ☐ Results tables rendered into report + final submission doc
@@ -358,7 +358,7 @@ table is filled with reproduced logs.
 | # | Risk | Trigger | Action | Owner |
 |---|---|---|---|---|
 | J1 | BE.txt download slow/corrupt | D3 not fully down | partial 50K subset first; fallback: reBEN/Sentinel2Cap + BE v2 with generated text | ☐ |
-| J2 | GPU shortage | <2×24 GB by D8 | 4-bit everywhere; M1 2B only; subset → 60K; queue single-request | ☐ |
+| J2 | GPU shortage — **this is the baseline, not a risk: ₹0 budget, free 16 GB notebooks only** | always | QLoRA 4-bit; M1-2B only; stratified 20–40K subset; M6 cut; stagger across 5 members' Kaggle accounts (`budget.md` §4, §7) | ☐ |
 | J3 | M1 underperforms gate | D12 numbers < target | more epochs on BE.txt VQA slice; check template-caption bias; raise RSVQA weight | ☐ |
 | J4 | Planner unstable in demo | fallback rate >5 % on suite | simplify plan JSON (tool+params only); raise rule-router share | ☐ |
 | J5 | Hidden set 1 m Cartosat / L-band RISAT surprises | §A7.1 test fails on proxies | tiling already; add band-config presets; re-test on real samples ASAP | ☐ |

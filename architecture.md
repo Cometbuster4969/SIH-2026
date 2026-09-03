@@ -1,7 +1,7 @@
 # SatQuery AI — Architecture (PS 26167, ISRO, SIH 2026)
 
 **Version:** 1.1 — 3 Sep 2026
-**Companion docs:** `ps-26167.md` (**official PS — source of truth**) · `design.md` (UI/API/report) · `checkpoints.md` (compliance + execution checklist) · `satquery-ai-architecture.md` (PS rating + dataset facts) · `proposedidea.md` (scope decisions)
+**Companion docs:** `ps-26167.md` (**official PS — source of truth**) · `budget.md` (**₹0 constraint — overrides §9 deployment**) · `design.md` (UI/API/report) · `checkpoints.md` (compliance + execution checklist) · `satquery-ai-architecture.md` (PS rating + dataset facts) · `proposedidea.md` (scope decisions)
 
 > ### Deadline banner — read before using this document
 >
@@ -62,7 +62,7 @@
    │           │            │            │                       │
 ┌──▼───────┐ ┌▼─────────┐ ┌─▼──────────┐ ┌──────────────────────▼────────────────┐
 │ T1 vqa / │ │ T2 ground│ │ T3 change_ │ │ T4 xmodal_caption / xmodal_vqa /      │
-│ T1 caption│ │          │ │ map +      │ │ xmodal_presence (M6 fusion + M7 patch)│
+│ T1 caption│ │          │ │ map +      │ │ xmodal_mask  (M6 fusion + M7 UNet++)  │
 │ (M1)     │ │ (M3)     │ │ change_vqa │ │                                       │
 └──────────┘ └──────────┘ │ (M4 + M5)  │ └───────────────────────────────────────┘
                           └────────────┘
@@ -147,7 +147,7 @@ Registry lives in `backend/agent/registry.yaml` + JSON schemas in `backend/agent
 | `change_vqa` | M5 (M1 2-image head) | img_t1, img_t2, question?, change_facts? | answer, confidence |
 | `xmodal_caption` | M6 fusion | optical, sar | joint caption, per-modality findings, confidence |
 | `xmodal_vqa` | M6 fusion | optical, sar, question | answer, confidence |
-| `xmodal_presence` | M7 dual patch-classifier | optical, sar | presence{built_up, water} + per-tile scores, box evidence (via `ground`), confidence |
+| `xmodal_mask` | M7 dual UNet++ | optical, sar | masks{built_up, water}, per-class IoU-conf, confidence |
 | `integrate` | LSP 7B-4bit | tool outputs (JSON), images | final answer + claim→tool citations + overall confidence |
 
 Tool contract (all tools):
@@ -169,7 +169,7 @@ Canonical plans (fallback router = this table, keyed by scope × task intent):
 |---|---|---|---|---|---|
 | 1 optical / 1 SAR | `caption` | `vqa` | `ground` | — | — |
 | bi-temporal | `change_map→change_vqa` | `change_map→change_vqa` | `change_map` (+`ground` on t2) | `change_map` | `change_map` (area diff) → `change_vqa` constrained |
-| optical+SAR | `xmodal_caption`(+`xmodal_presence`) | `xmodal_vqa` | `xmodal_vqa`+`ground` | `xmodal_presence`+`ground` | — |
+| optical+SAR | `xmodal_caption`(+`xmodal_mask`) | `xmodal_vqa` | `xmodal_vqa`+`ground` | `xmodal_mask` | — |
 
 All plans end with `integrate`. Multi-step user queries ⇒ planner may emit longer DAGs (`depends_on` supported).
 
@@ -183,7 +183,7 @@ All plans end with `integrate`. Multi-step user queries ⇒ planner may emit lon
 | **M4** | Change backbone | BiT (or ChangeFormer) | QAG-360K (masks) + CDVQA (semantic change maps) + LEVIR-CD/WHU-CD | change_map |
 | **M5** | Change-VQA head | M1 (2-image mode) | CDVQA (122K QA) + QAG-360K triplets + ChangeChat-105k | change_vqa |
 | **M6** | Optical–SAR fusion | dual ViT towers (S2-pretrained optical, SAR-pretrained: SEN2SAR/SARImageNet) + Q-Former → M1 decoder | **BE.txt S1–S2–text triplets (229K)** + TAMMI (VHR+MS+SAR VQA) | xmodal_caption, xmodal_vqa |
-| **M7** | Dual-input **patch classifier** (built-up/water presence) — *not* a per-pixel segmenter, see §7.2 | ResNet/UNet++ encoder, ImageNet init | BigEarthNet v2 patch-level LULC labels (S2+S1 aligned) | xmodal_presence (built_up, water) + box-rendered evidence |
+| **M7** | Dual-input UNet++ — **per-pixel** built-up/water segmentation (see §7.2) | UNet++ (ImageNet-init encoder) | BigEarthNet v2 **pixel-level reference maps** (`Reference_Maps.tar.zst`, CLC2018-derived) + aligned S1/S2 | xmodal_mask (built_up, water) |
 | **T5** | Evidence utilities | Grad-CAM/attention rollback; token-probability extraction; temperature calibration on held-out set | — | confidence + evidence crops |
 
 ### 7.1 Model triage for the 15-day Window B (binding)
@@ -204,7 +204,7 @@ Seven trained models in 15 days on SIH-grade GPU access is not achievable. Prior
 | | **M3** (Grounding-DINO-T, light VRSBench-refs fine-tune) | Cheap; delivers the most visually convincing demo. |
 | **No separate train** | **M5** | It *is* M1 in 2-image mode. Do not budget a separate run. |
 | | **M2** | Prompt-engineered Qwen2.5-7B-4bit, no fine-tune. RuleRouter always underneath. |
-| **Must ship (path, not model)** | **Cross-modal optical–SAR** | PS *principal focus* — cannot be a stretch item. Ship it as **M1 in 2-image mode (optical+SAR) + M7 presence + the §7.3 ablation**, trained on BE.txt S1–S2 triplets. This is a real, trained, cross-modal path with no extra run. |
+| **Must ship (path, not model)** | **Cross-modal optical–SAR** | PS *principal focus* — cannot be a stretch item. Ship it as **M1 in 2-image mode (optical+SAR) + M7 per-pixel masks + the §7.3 ablation**, trained on BE.txt S1–S2 triplets. This is a real, trained, cross-modal path with no extra run. |
 | **Stretch (upgrade only)** | **M6** dual-tower + Q-Former | An *architectural upgrade* to the above, not the way the mandate is met. Build only if GPU days remain after 15 Sep. Its absence must never leave C3 unserved. |
 | | **M7** | Reframed — see §7.2. Patch-level only. |
 
@@ -216,17 +216,29 @@ modes, it is tempting to tune it on single-image data and let the paired modes r
 not. Weight the training mix toward **2-image samples (BE.txt S1–S2 triplets, CDVQA, TAMMI)**
 and gate M1 on paired-task metrics, per the PS priority statement above.
 
-### 7.2 M7 correction — patch-level, not per-pixel (data/claim mismatch)
+### 7.2 M7 — per-pixel IS supported (earlier "patch-level only" claim was wrong)
 
-The earlier plan gated M7 on *"per-pixel built-up/water mIoU ≥ 0.80"*. **BigEarthNet v2 ships
-patch-level multi-labels, not per-pixel masks.** That gate is unsupported by the data and a judge
-familiar with the dataset will catch it.
+> **Retraction.** A previous revision of these docs asserted that *"BigEarthNet v2 ships
+> patch-level multi-labels, not per-pixel masks"* and downgraded M7 to a presence classifier.
+> **That was incorrect.** Verified against the official Zenodo record (v2.0.0, DOI 10.5281/
+> zenodo.10891137): BigEarthNet v2.0 ships **`Reference_Maps.tar.zst` (282.4 MB) — pixel-level
+> reference maps** derived from CORINE CLC2018 (v2020_u1), explicitly *"making the dataset
+> suitable for pixel- and scene-based learning tasks."* Per-pixel built-up/water masks are
+> therefore **directly derivable** by collapsing the 19 CLC classes into the two target classes.
 
-**Fix (adopted):** M7 is a **patch-level built-up/water presence classifier**. Labels fit the data
-as-is, no new dataset needed. Spatial evidence for the "identify built-up and water-covered
-regions" query is rendered from **M3 grounding boxes + tile-level presence heat**, not a claimed
-pixel mask. Metric becomes patch **F1 / mAP**, not mIoU. If a true dense mask is later required,
-that needs a real dense-segmentation dataset (e.g. LoveDA / OpenEarthMap) — a Window-B-plus item.
+**Position (corrected):** M7 **is** a dense segmentation model (dual-input UNet++, optical + SAR),
+trained on the BE v2 reference maps. This also restores a real spatial change/extent overlay for
+the PS query *"identify built-up and water-covered regions"* — an actual mask, not boxes.
+
+**But keep the metric honest.** The old **mIoU ≥ 0.80 gate remains unjustified** — that is a
+strong number for two-class RS segmentation from 10 m CLC-derived labels, whose polygon
+boundaries are coarse relative to pixel size. Set the gate at **mIoU ≥ 0.60 (built-up/water mean)
+as pass, ≥ 0.70 as good**, and report per-class IoU separately (water typically scores well
+above built-up). Report the number you actually get.
+
+**Zero-budget note:** the reference maps are only 282 MB, but they are useless without the
+imagery (S1 54.4 GB + S2 63.3 GB = 118 GB total). See `budget.md` §3 for the subset strategy —
+M7 trains on a few thousand patches, not 549,488.
 
 ### 7.3 Optical / SAR / fused ablation view (cheap, high judging yield)
 
@@ -282,6 +294,11 @@ Trace persisted (SQLite) → UI + PDF
 
 ## 9. Inference serving & deployment
 
+> **⚠ Superseded for the actual build by `budget.md`.** The team has **zero budget** — no paid
+> GPU or hosting. The GPU table below is the *production target*, not the 5/20 Sep plan.
+> Real plan: **train on free Kaggle/Colab (16 GB, QLoRA), serve on a laptop CPU, no cloud.**
+> M6 is cut. See `budget.md` §4–§6.
+
 | Model | Memory (serving) | Runner | GPU |
 |---|---|---|---|
 | M1 Qwen2-VL-2B (bf16+LoRA) | ~6 GB | vLLM (multi-image) | A |
@@ -290,7 +307,7 @@ Trace persisted (SQLite) → UI + PDF
 | M4 BiT (ViT-B) | ~0.8 GB | HF worker | B |
 | M5 (M1 head) | — (shared M1) | vLLM | A |
 | M6 fusion+Q-Former | ~2 GB | HF worker | B |
-| M7 patch classifier | ~0.4 GB | HF worker | B |
+| M7 UNet++ | ~0.4 GB | HF worker | B |
 
 - **Min viable: 1× RTX 4090 24 GB** — one vLLM instance (`gpu-mem-util 0.85`) for M1+M2, B-tools time-sliced via queue. **Recommended: 2× 24 GB** per table.
 - **Docker Compose:** `frontend` (nginx static), `api` (FastAPI, port 8000, binds 0.0.0.0), `models` (vLLM + workers); volume `/models` with vendored weights; SQLite at `/data/traces.db`.

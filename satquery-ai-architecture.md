@@ -70,7 +70,7 @@ several unstated constraints that teams must plan around.
 │ Qwen2-VL-2B│ │ Grounding-  │ │ ChangeMask:    │ │ dual-tower S1/S2      │
 │ LoRA on    │ │ DINO-T      │ │ BiT/ChangeForm-│ │ encoders + Q-Former    │
 │ BE.txt +   │ │ fine-tuned  │ │ er on QAG-360K │ │ → LLM adapter         │
-│ RSVQA +    │ │ on VRSBench │ │ + LEVIR-CD;    │ │ + dual patch-classif. │
+│ RSVQA +    │ │ on VRSBench │ │ + LEVIR-CD;    │ │ + dual-input UNet++   │
 │ VRSBench + │ │ + BE.txt    │ │ ChangeVQA:     │ │   (built-up/water     │
 │ TAMMI      │ │ refs        │ │ RS-VLM 2-image │ │   mask)               │
 │ (caption,  │ │             │ │ head on CDVQA+ │ │ (joint caption/VQA/   │
@@ -168,14 +168,13 @@ Two cooperating tools:
      cleanest possible training signal in the entire problem statement.
    - Serves: joint captions ("built-up on optical + strong backscatter on SAR in the NE"),
      cross-modal VQA, cross-modal grounding.
-2. **Dual-input patch classifier** (optical + SAR, dB-normalized) trained on BigEarthNet v2
-   **patch-level** LULC labels → per-tile built-up/water **presence scores**. Answers the
+2. **Dual-input UNet++** (optical + SAR, dB-normalized) trained on BigEarthNet v2
+   **pixel-level reference maps** → per-pixel joint built-up/water masks. Answers the
    representative query "Use the optical and SAR images together to identify built-up and
-   water-covered regions" with a tile-presence heat layer plus grounding boxes.
-   > **Corrected (v1.1):** the earlier "per-pixel joint masks / mIoU ≥ 0.80" claim is
-   > **unsupported** — BigEarthNet v2 ships patch-level multi-labels, not per-pixel masks.
-   > Metric is patch F1/mAP. See `architecture.md` §7.2. A true dense mask would require a
-   > dense-segmentation dataset (LoveDA / OpenEarthMap) and is out of scope for 20 Sep.
+   water-covered regions" with a real mask overlay.
+   > **v1.2 note:** v1.1 of these docs wrongly claimed BE v2 has no per-pixel masks. It does —
+   > `Reference_Maps.tar.zst`, CLC2018-derived (verified on Zenodo 10891137). Per-pixel is back
+   > on. Only the **mIoU ≥ 0.80 target** was unjustified → now ≥0.60 pass / ≥0.70 good.
 3. Confidence synergy (nice judging point): when optical and SAR evidence agree (e.g., both
    indicate water / both indicate built-up backscatter) → boost reported confidence;
    disagreement → flag it explicitly in the answer ("SAR shows flooded surface while
@@ -271,7 +270,7 @@ Mirror the evaluation the judges will run, so you can iterate with numbers:
 | Single VQA | VRSBench + RSVQA test | exact match, soft accuracy (constrained) |
 | Change VQA | CDVQA test (+ QAG-360K holdout) | exact match over answer categories |
 | Change map | CDVQA/QAG-360K | IoU, F1, mIoU |
-| Cross-modal | BigEarthNet.txt benchmark split (1,082 pairs) | their 15-task suite + built-up/water patch F1 + optical/SAR/fused ablation |
+| Cross-modal | BigEarthNet.txt benchmark split (1,082 pairs) | their 15-task suite + built-up/water mIoU + optical/SAR/fused ablation |
 
 Report **zero-shot → adapted** deltas per task — that table *is* your compliance proof for
 "remote-sensing fine-tuning or domain adaptation".
