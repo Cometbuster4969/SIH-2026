@@ -1,0 +1,145 @@
+# SatQuery AI — tool registry (PS A2.2: registry of agent-callable tools).
+# The agent may ONLY call tools declared here. Trained status is honest:
+# only landcover runs genuinely trained weights in Window A; the rest are
+# declared heuristics until their fine-tunes land in Window B.
+version: "0.1.0"
+tools:
+  - name: landcover
+    task: landcover
+    modality_required: [optical, sar, pair]
+    description: >
+      Patch-level multi-label land-cover classification (19 CLC classes) over a
+      remote-sensing patch. Window A: BIFOLD BigEarthNet v2.0 pretrained
+      resnet50-all-v0.2.0 (genuinely trained, 120x120 @10 m, S1+S2 bands).
+      v0.2.0 band order is asserted in ingestion:
+      [VV, VH, B02, B03, B04, B05, B06, B07, B08, B8A, B11, B12].
+    param_schema:
+      type: object
+      properties:
+        threshold: {type: number, default: 0.5}
+      additionalProperties: false
+    examples:
+      - "What land cover types are in this image?"
+      - "Is this area agricultural or urban?"
+      - "Classify the land cover in this patch."
+    trained: true
+    vendor: "BIFOLD/TU-Berlin BigEarthNet v2.0 resnet50-all-v0.2.0 (mAP macro 0.7107)"
+    latency_budget_s: 10.0
+
+  - name: vqa_single
+    task: vqa
+    modality_required: [optical, sar]
+    description: >
+      Single-image visual question answering. Window A: heuristic keyword/band
+      index answers (NDVI water/vegetation, SAR texture). Window B: M1
+      Qwen2-VL-2B QLoRA, our fine-tune — the PS A1.1 compliance artifact.
+    param_schema:
+      type: object
+      properties:
+        question: {type: string}
+      required: [question]
+      additionalProperties: false
+    examples:
+      - "Is there a water body in this image?"
+      - "Is the area vegetated?"
+    trained: false
+    latency_budget_s: 10.0
+
+  - name: caption_scene
+    task: caption
+    modality_required: [optical, sar, pair]
+    description: >
+      Scene captioning. Window A: template caption from land-cover labels +
+      modality. Window B: M1 caption head.
+    param_schema: {type: object, additionalProperties: false}
+    examples:
+      - "Describe this scene."
+    trained: false
+    latency_budget_s: 10.0
+
+  - name: ground_object
+    task: ground
+    modality_required: [optical, sar]
+    description: >
+      Referring-expression grounding -> bounding box. Window A: precomputed boxes
+      on the 3-5 frozen demo scenes (declared heuristic). Window B: M3
+      Grounding-DINO-T fine-tune.
+    param_schema:
+      type: object
+      properties:
+        expression: {type: string}
+      required: [expression]
+      additionalProperties: false
+    examples:
+      - "Locate the largest building."
+      - "Where is the water body?"
+    trained: false
+    latency_budget_s: 8.0
+
+  - name: change_detect
+    task: change
+    modality_required: [optical, sar]
+    description: >
+      Bi-temporal change detection between two co-registered images. Window A:
+      NDVI/NDBI differencing heuristic + change percentage. Window B: M4 BiT
+      fine-tuned on LEVIR-CD/WHU-CD/CDVQA.
+    param_schema:
+      type: object
+      properties:
+        method: {type: string, enum: [ndvi_diff, ndbi_diff], default: ndvi_diff}
+      additionalProperties: false
+    examples:
+      - "What changed between these two dates?"
+      - "Show me the changed area."
+    trained: false
+    latency_budget_s: 20.0
+
+  - name: change_vqa
+    task: change_vqa
+    modality_required: [optical, sar]
+    description: >
+      Questions about a bi-temporal pair. Window A: answers derived from the
+      change mask heuristic. Window B: M5 = M1 in 2-image mode (not a separate
+      run, per the binding model triage).
+    param_schema:
+      type: object
+      properties:
+        question: {type: string}
+      required: [question]
+      additionalProperties: false
+    examples:
+      - "Was there new construction between the two images?"
+    trained: false
+    latency_budget_s: 20.0
+
+  - name: xmodal_reason
+    task: xmodal
+    modality_required: [pair]
+    description: >
+      Joint reasoning over co-registered optical + SAR (cloud penetration,
+      structure through canopy). Window A: fuses the trained land-cover labels
+      with SAR-texture heuristic, and is honest about which part is trained.
+      Window B: M1 2-image mode + M7.
+    param_schema: {type: object, additionalProperties: false}
+    examples:
+      - "The optical image is cloudy — what does the SAR show underneath?"
+      - "Combine optical and radar to describe this area."
+    trained: false
+    latency_budget_s: 20.0
+
+  - name: xmodal_segment
+    task: xmodal_mask
+    modality_required: [pair]
+    description: >
+      Per-pixel cross-modal segmentation. Window A: NDVI/SAR-threshold mask
+      heuristic. Window B: M7 dual UNet++ with BIFOLD S1+S2 pretrained encoder
+      init, trained on BE v2.0 pixel-level reference maps.
+    param_schema:
+      type: object
+      properties:
+        target_class: {type: string, default: water}
+      additionalProperties: false
+    examples:
+      - "Segment the water across optical and radar."
+    trained: false
+    latency_budget_s: 20.0
