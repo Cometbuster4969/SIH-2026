@@ -168,10 +168,13 @@ Two cooperating tools:
      cleanest possible training signal in the entire problem statement.
    - Serves: joint captions ("built-up on optical + strong backscatter on SAR in the NE"),
      cross-modal VQA, cross-modal grounding.
-2. **Dual-input UNet++** (optical RGB + SAR amplitude) fine-tuned on BigEarthNet v2 LULC
-   reference maps → **per-pixel joint built-up/water masks**. Directly answers the
+2. **Dual-input UNet++** (optical + SAR, dB-normalized) trained on BigEarthNet v2
+   **pixel-level reference maps** → per-pixel joint built-up/water masks. Answers the
    representative query "Use the optical and SAR images together to identify built-up and
-   water-covered regions" with a real mask overlay, not just text.
+   water-covered regions" with a real mask overlay.
+   > **v1.2 note:** v1.1 of these docs wrongly claimed BE v2 has no per-pixel masks. It does —
+   > `Reference_Maps.tar.zst`, CLC2018-derived (verified on Zenodo 10891137). Per-pixel is back
+   > on. Only the **mIoU ≥ 0.80 target** was unjustified → now ≥0.60 pass / ≥0.70 good.
 3. Confidence synergy (nice judging point): when optical and SAR evidence agree (e.g., both
    indicate water / both indicate built-up backscatter) → boost reported confidence;
    disagreement → flag it explicitly in the answer ("SAR shows flooded surface while
@@ -267,12 +270,20 @@ Mirror the evaluation the judges will run, so you can iterate with numbers:
 | Single VQA | VRSBench + RSVQA test | exact match, soft accuracy (constrained) |
 | Change VQA | CDVQA test (+ QAG-360K holdout) | exact match over answer categories |
 | Change map | CDVQA/QAG-360K | IoU, F1, mIoU |
-| Cross-modal | BigEarthNet.txt benchmark split (1,082 pairs) | their 15-task suite + your built-up/water mIoU |
+| Cross-modal | BigEarthNet.txt benchmark split (1,082 pairs) | their 15-task suite + built-up/water mIoU + optical/SAR/fused ablation |
 
 Report **zero-shot → adapted** deltas per task — that table *is* your compliance proof for
 "remote-sensing fine-tuning or domain adaptation".
 
-## 2.8 Pre-hackathon work plan (~5–6 weeks before SIH on-site)
+## 2.8 Work plan — SUPERSEDED
+
+> **This 6-week plan does not apply.** The real calendar is **5 Sep pitch (PPT) → 20 Sep final
+> (PPT + code + models)** — 15 days of build, not 6 weeks. The binding schedule is
+> `checkpoints.md` §G, with the model triage in `architecture.md` §7.1 (**three trained models:
+> M1, M4, M3** — not seven). The table below is retained only as a shape reference for what a
+> full-length run *would* look like.
+
+### (retained for reference — do not schedule from this)
 
 | Week | Deliverable |
 |---|---|
@@ -290,7 +301,7 @@ evaluator, report generation, submission packaging.
 
 1. Single optical (or SAR): *"Describe the land-cover and major objects visible in this
    image."* → T1 caption (+ T2 bonus boxes).
-2. *"Highlight the water body referred in the query."* → T2 grounding overlay.
+2. *"Highlight the water body referred to in the query."* → T2 grounding overlay.
 3. Bi-temporal pair: *"What changed between these two dates, and where did the change
    occur?"* → T3 mask + ChangeVQA answer with coordinates.
 4. Optical + SAR pair: *"Use the optical and SAR images together to identify built-up and
