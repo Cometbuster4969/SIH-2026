@@ -174,11 +174,12 @@ Per model: base weights ☐ · adapter/weights path ☐ · training config commi
 - ☐ Every DONE request ⇒ complete trace (A2.6 fields) + `trace.json` + PDF ≤3 MB
 - ☐ PDF contains: query, metadata, answer+confidence, overlays, auditable step table, model versions
 
-**Frontend**
-- ☐ All overlay layer types render (bbox/masks/heatmap/annotations) with legend + toggles
-- ☐ Trace panel (expandable rows, JSON export), metadata cards, pair banner (green/amber/red)
-- ☐ Demo mode: sample data + 5 query chips + "Run full walkthrough"
-- ☐ Edge-case cards per design.md §11 (8 cases)
+**Frontend** (interactive web app built 4 Sep: `prototype/web/` + `satquery/web_server.py`; 8 web tests pass, runs `uvicorn satquery.web_server:app`)
+- ◐ Overlay layers render server-side (design §5 colors): **bbox (cyan), change mask (red/yellow), water/built-up mask (blue/orange), NDVI heatmap (viridis)** with legend + visibility toggles. Remaining: annotations layer + geo lat/lon tooltip + stage PNG export for the report.
+- ☑ Trace panel — expandable step rows, per-step latency, "Trace as JSON" export; inventory cards; pair banner green/amber/red (auto co-reg offset → amber).
+- ☑ Demo mode — 3 curated sets (single / bi-temporal / optical+SAR), 6 query chips, one-click **"Full walkthrough"** (runs all queries in sequence).
+- ☑ Offline, no CDN/fonts — plain HTML/CSS/vanilla JS, dark + cyan (design §12), 3-pane + image stage layout (design §2).
+- ◐ Edge-case cards per design.md §11: E_FORMAT rejection with fix copy live; coreg-offset amber banner live; abstention/status badges live. Remaining: >10k-px tiling notice, missing-dates direction caveat, cloud flag, change-below-threshold copy.
 
 **Deployment**
 - ☐ `docker compose up` cold start <10 min; `/warmup` loads all weights
@@ -247,7 +248,7 @@ Per model: base weights ☐ · adapter/weights path ☐ · training config commi
 - ☐ REAL: `registry.yaml` + `GET /tools`
 - ☐ REAL: **RuleRouter only** (canonical table, arch §6) — *skip the LLM planner entirely*
 - ☐ REAL: SQLite trace store + trace panel
-- ☐ REAL: Streamlit/Gradio UI — upload, answer card, overlay toggles, trace open by default
+- ☑ REAL: interactive **web app** (FastAPI `/api/v1` + static `web/` UI, not Streamlit) — upload/inventory, answer card with TRAINED/HEURISTIC badges + confidence dots, overlay toggles on an image stage, trace panel open; Streamlit retained as an internal alt UI
 - ☐ HEURISTIC (declare it): change mask via NDVI/NDBI delta + threshold; precomputed
       grounding boxes on 3–5 demo scenes; canned confidence
 - ☐ Cached-answer **kill switch** — non-negotiable

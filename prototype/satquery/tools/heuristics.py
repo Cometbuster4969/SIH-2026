@@ -49,16 +49,23 @@ class _Base:
 
     def _cached(self, tin: ToolInput, task_key: str) -> ToolResult | None:
         sid = tin.params.get("scene_id")
-        if sid and sid in self.demo_cache.get(task_key, {}):
-            c = self.demo_cache[task_key][sid]
-            return ToolResult(
-                tool=self.name, task=self.task, status="ok",
-                answer=c["answer"], confidence=c.get("confidence"),
-                trained=False, bbox=c.get("bbox"),
-                labels=c.get("labels", []),
-                extra={"cached": True, **c.get("extra", {})},
-            )
-        return None
+        cache = self.demo_cache.get(task_key, {})
+        hit = cache.get(sid) if sid else None
+        # Demo mode with no specific scene: serve the curated cached answer for
+        # this task (demo-day kill switch; answer is labelled cached/heuristic).
+        if hit is None and tin.params.get("demo") and cache:
+            c = next(iter(cache.values()))
+        elif hit is None:
+            return None
+        else:
+            c = hit
+        return ToolResult(
+            tool=self.name, task=self.task, status="ok",
+            answer=c["answer"], confidence=c.get("confidence"),
+            trained=False, bbox=c.get("bbox"),
+            labels=c.get("labels", []),
+            extra={"cached": True, **c.get("extra", {})},
+        )
 
     def _no_image(self) -> ToolResult:
         return ToolResult(tool=self.name, task=self.task, status="abstain",
@@ -123,7 +130,7 @@ class GroundTool(_Base):
     task = TaskType.GROUND
 
     def run(self, tin: ToolInput) -> ToolResult:
-        cached = self._cached(tin, "ground")
+        cached = self._cached(tin, "ground_object")
         if cached:
             return cached
         if not tin.images:
@@ -144,7 +151,8 @@ class GroundTool(_Base):
         except IngestionError:
             cy, cx = h // 2, w // 2
         r = max(4, min(h, w) // 8)
-        bbox = [max(0, cx - r), max(0, cy - r), min(w, cx + r), min(h, cy + r)]
+        bbox = [int(max(0, cx - r)), int(max(0, cy - r)),
+                int(min(w, cx + r)), int(min(h, cy + r))]
         answer = (f"Heuristic location for '{expr}': box {bbox} (pixel coords). "
                   f"Grounding-DINO-T (M3) fine-tune replaces this in Window B.")
         return ToolResult(

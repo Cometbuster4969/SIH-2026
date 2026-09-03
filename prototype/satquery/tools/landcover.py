@@ -108,8 +108,11 @@ class LandcoverTool:
 
         # Cached-answer kill switch: frozen demo answers never depend on the GPU.
         cache_key = tin.params.get("scene_id")
-        if cache_key and cache_key in self.demo_cache.get("landcover", {}):
-            cached = self.demo_cache["landcover"][cache_key]
+        cache = self.demo_cache.get("landcover", {})
+        cached = cache.get(cache_key) if cache_key else None
+        if cached is None and tin.params.get("demo") and cache:
+            cached = next(iter(cache.values()))   # curated demo answer (labelled)
+        if cached is not None:
             return ToolResult(
                 tool=self.name, task=self.task, status="ok",
                 answer=cached["answer"], confidence=cached.get("confidence"),

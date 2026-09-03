@@ -3,6 +3,7 @@ __pycache__/
 .venv/
 trace.db
 artifacts/
+web_data/
 data/demo/*.tif
 data/demo/*.tiff
 .pytest_cache/

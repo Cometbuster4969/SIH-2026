@@ -33,14 +33,33 @@ python -m satquery.cli --tools
 python -m satquery.cli "What land cover types are in this image?" \
     --image data/demo/optical_scene1_rural.tif --scene-id demo_scene_01
 
-# API (binds 0.0.0.0 for the preview/venue laptop):
+# *********************************************************************
+# INTERACTIVE WEB APP — the judged GUI (FastAPI + browser UI, offline)
+# *********************************************************************
 pip install -r requirements-serve.txt
-uvicorn satquery.server:app --host 0.0.0.0 --port 8000
+uvicorn satquery.web_server:app --host 0.0.0.0 --port 8000
+# open http://localhost:8000  — upload/demo -> ask -> answer card +
+# overlay toggles + execution trace. No CDN, no build step (design §12).
+#   REST: /api/v1/health  /tools  /demo  /ingest(multipart)  /query
+#         artifacts served from /web/sessions/<id>/artifacts/
+
+# Alt minimal JSON API (no browser UI):
+uvicorn satquery.server:app --host 0.0.0.0 --port 8001
 #   GET /health  GET /tools  POST /query  GET /trace/{id}  GET /traces
 
-# UI:
+# Alt Streamlit UI (internal):
 streamlit run app.py
 ```
+
+### Web app features (vs design.md)
+
+3-pane layout (inventory · chat · trace) + image stage (design §2): upload 1–2
+rasters or load a curated demo set (single / bi-temporal / optical+SAR); answer
+cards carry task/trained/heuristic badges + confidence dots (§7); overlay layers
+rendered server-side with the §5 palette and visibility toggles (cyan bbox, red
+change mask, blue water mask, viridis heatmap); pair banner green/amber/red from
+the real co-registration offset; trace panel open with per-step latency and JSON
+export; one-click "Full walkthrough"; format rejection returns a fix card (S5).
 
 ## Enabling the genuinely trained land-cover model
 

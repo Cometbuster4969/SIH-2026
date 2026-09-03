@@ -128,7 +128,11 @@ class Orchestrator:
         spec = get_tool(plan.tool)
         # Params whitelist: only keys in the registry schema are passed (PS A2.4).
         allowed = set((spec.param_schema.get("properties") or {}).keys())
-        clean_params = {k: v for k, v in params.items() if k in allowed or k == "scene_id"}
+        # 'scene_id' (demo kill switch) and 'demo' (curated cached answers) are
+        # framework params passed through to tools but never to models.
+        _FRAMEWORK_PARAMS = {"scene_id", "demo"}
+        clean_params = {k: v for k, v in params.items()
+                        if k in allowed or k in _FRAMEWORK_PARAMS}
         tin = ToolInput(query=q, images=rasters, params=clean_params)
         tin.query_id = trace.query_id  # used for artifact filenames
 

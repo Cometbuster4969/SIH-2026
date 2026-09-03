@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SatQuery AI — multimodal remote-sensing assistant</title>
+<link rel="stylesheet" href="/web/static/styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛰️</text></svg>">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">🛰️ SatQuery&nbsp;AI</div>
+  <div class="tag">interactive multimodal remote-sensing assistant · PS 26167</div>
+  <nav>
+    <button id="demoToggle" class="btn ghost">▸ Demo data</button>
+    <button id="walkthrough" class="btn ghost" title="Run all six queries in sequence">⏵ Full walkthrough</button>
+    <button id="toolsBtn" class="btn ghost">Registry</button>
+    <button id="clearBtn" class="btn ghost">Reset</button>
+  </nav>
+</header>
+
+<main class="layout">
+  <!-- LEFT: upload + inventory -->
+  <section class="pane pane-left">
+    <h2>Upload &amp; inventory</h2>
+    <label class="dropzone" id="dropzone">
+      <input type="file" id="fileInput" multiple accept=".tif,.tiff,.png,.jpg,.jpeg" hidden>
+      <span class="dz-icon">＋</span>
+      <span>Add image(s)<br><small>1–2 rasters · GeoTIFF/PNG/JPG</small></span>
+    </label>
+
+    <div class="demo-row">
+      <span class="muted">Demo sets:</span>
+      <button class="chip small" data-demo="single">single optical</button>
+      <button class="chip small" data-demo="bi_temporal">bi-temporal pair</button>
+      <button class="chip small" data-demo="cross_modal">optical + SAR</button>
+    </div>
+
+    <div id="pairBanner" class="pair-banner hidden"></div>
+    <div id="inventory" class="inventory"></div>
+  </section>
+
+  <!-- MIDDLE: chat -->
+  <section class="pane pane-mid">
+    <div id="chat" class="chat">
+      <div class="empty-state">
+        <h3>Ask a question about satellite imagery</h3>
+        <p class="muted">Upload imagery or load a demo set, then pick a question — or type your own.<br>
+        Every answer ships with an <strong>auditable execution trace</strong> (right panel).</p>
+      </div>
+    </div>
+    <div id="chips" class="chips">
+      <button class="chip" data-q="What land cover types are in this image?">What land cover types are here?</button>
+      <button class="chip" data-q="Is there a water body in this image?">Is there a water body?</button>
+      <button class="chip" data-q="Locate the water body.">Locate the water body</button>
+      <button class="chip" data-q="What changed between these two dates, and where?">What changed between dates?</button>
+      <button class="chip" data-q="The optical image is cloudy — what does the SAR show underneath?">Cloudy — what does SAR show?</button>
+      <button class="chip" data-q="Describe this scene.">Describe this scene</button>
+    </div>
+    <div class="ask">
+      <input id="queryInput" type="text" placeholder="Ask about the imagery…" autocomplete="off">
+      <button id="sendBtn" class="btn accent">Run</button>
+    </div>
+  </section>
+
+  <!-- RIGHT: trace -->
+  <section class="pane pane-right">
+    <h2>Execution trace <span class="muted" id="traceMeta"></span></h2>
+    <div id="tracePanel" class="trace">
+      <p class="muted">The observable trace is what is evaluated — every tool call, status and latency is recorded. No internal reasoning is stored.</p>
+    </div>
+    <div class="trace-actions">
+      <button id="traceJson" class="btn tiny" disabled>Trace as JSON</button>
+      <button id="copyAnswer" class="btn tiny" disabled>Copy answer</button>
+    </div>
+  </section>
+</main>
+
+<!-- BOTTOM: image stage -->
+<section class="stage-bar">
+  <div class="stage-head">
+    <strong>Image stage</strong>
+    <div id="layerToggles" class="layer-toggles"></div>
+    <div id="baseSwitch" class="base-switch"></div>
+  </div>
+  <div class="stage" id="stage">
+    <div class="stage-empty muted">Upload imagery or load a demo set to view the image stage.</div>
+  </div>
+</section>
+
+<!-- modal: registry -->
+<div id="modal" class="modal hidden">
+  <div class="modal-card">
+    <h2>Tool registry <button id="modalClose" class="btn tiny right">close</button></h2>
+    <p class="muted">The agent may only call tools declared here (PS A2.2). <code>GET /api/v1/tools</code></p>
+    <div id="toolsList"></div>
+  </div>
+</div>
+
+<script src="/web/static/app.js"></script>
+</body>
+</html>
