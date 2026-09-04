@@ -29,6 +29,8 @@ points — are in **[`prototype/README.md`](prototype/README.md)**.
 | [`architecture.md`](architecture.md) · [`design.md`](design.md) | System/model architecture · UI, API, report and schema design |
 | [`checkpoints.md`](checkpoints.md) · [`budget.md`](budget.md) | Compliance matrix, schedule, team roles · ₹0 build/deploy plan |
 | [`prototype/`](prototype/) | Runnable code: ingestion, registry, router, orchestrator, SQLite trace, FastAPI web app, tests |
+| [`SatQuery-AI-SIH2026-Idea-Deck-v2.pptx`](SatQuery-AI-SIH2026-Idea-Deck-v2.pptx) · [`.pdf`](SatQuery-AI-SIH2026-Idea-Deck-v2.pdf) | **Idea-submission deck** (6 slides, official template). Upload the PDF; the PPTX is the editable master. Supersedes `SatQuery-AI-SIH2026-Idea-Deck.*` |
+| [`docs/sih-winning-deck-analysis.md`](docs/sih-winning-deck-analysis.md) | Structural/visual patterns mined from a winning SIH idea deck + how this deck applies them, and the pre-upload checklist |
 | [`docs/`](docs/) | Screenshots (regenerate with `python prototype/scripts/make_readme_screenshot.py`) |
 
 Doc precedence when in doubt: `ps-26167.md` › `budget.md` (hardware/deploy) › `architecture.md`.
