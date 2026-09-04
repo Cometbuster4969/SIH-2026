@@ -3,18 +3,27 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SatQuery AI — multimodal remote-sensing assistant</title>
+<title>SatQuery AI — multimodal remote-sensing assistant · SIH 2026 PS 26167</title>
 <link rel="stylesheet" href="/web/static/styles.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛰️</text></svg>">
+<link rel="icon" href="/web/static/assets/sih_bulb.png">
 </head>
 <body>
+<div class="stars" aria-hidden="true"></div>
+
 <header class="topbar">
-  <div class="brand">🛰️ SatQuery&nbsp;AI</div>
-  <div class="tag">interactive multimodal remote-sensing assistant · PS 26167</div>
+  <div class="brand">
+    <img class="brand-ico" src="/web/static/assets/sih_bulb.png" alt="SIH">
+    <div class="brand-txt">
+      <span class="brand-name">SatQuery&nbsp;<em>AI</em></span>
+      <span class="brand-sub">vision-language assistant for remote sensing</span>
+    </div>
+  </div>
+  <div class="ps-chip" title="Smart India Hackathon 2026 · Problem Statement 26167 (ISRO)">PS&nbsp;26167 · ISRO</div>
   <nav>
-    <button id="demoToggle" class="btn ghost">▸ Demo data</button>
-    <button id="walkthrough" class="btn ghost" title="Run all six queries in sequence">⏵ Full walkthrough</button>
+    <button id="demoToggle" class="btn ghost" title="Load the curated bi-temporal demo pair">▸ Demo data</button>
+    <button id="walkthrough" class="btn ghost" title="Run all six PS-representative queries in sequence">⏵ Full walkthrough</button>
     <button id="toolsBtn" class="btn ghost">Registry</button>
+    <button id="archBtn" class="btn ghost">Architecture</button>
     <button id="clearBtn" class="btn ghost">Reset</button>
   </nav>
 </header>
@@ -22,15 +31,16 @@
 <main class="layout">
   <!-- LEFT: upload + inventory -->
   <section class="pane pane-left">
-    <h2>Upload &amp; inventory</h2>
+    <h2><span class="h-ico">📡</span> Upload &amp; inventory</h2>
     <label class="dropzone" id="dropzone">
       <input type="file" id="fileInput" multiple accept=".tif,.tiff,.png,.jpg,.jpeg" hidden>
       <span class="dz-icon">＋</span>
-      <span>Add image(s)<br><small>1–2 rasters · GeoTIFF/PNG/JPG</small></span>
+      <span class="dz-title">Add image(s)</span>
+      <small>1–2 rasters · GeoTIFF / PNG / JPG</small>
     </label>
 
     <div class="demo-row">
-      <span class="muted">Demo sets:</span>
+      <span class="muted">Demo sets</span>
       <button class="chip small" data-demo="single">single optical</button>
       <button class="chip small" data-demo="bi_temporal">bi-temporal pair</button>
       <button class="chip small" data-demo="cross_modal">optical + SAR</button>
@@ -43,10 +53,29 @@
   <!-- MIDDLE: chat -->
   <section class="pane pane-mid">
     <div id="chat" class="chat">
-      <div class="empty-state">
-        <h3>Ask a question about satellite imagery</h3>
-        <p class="muted">Upload imagery or load a demo set, then pick a question — or type your own.<br>
-        Every answer ships with an <strong>auditable execution trace</strong> (right panel).</p>
+      <div class="empty-state" id="hero">
+        <div class="hero-glow" aria-hidden="true"></div>
+        <h3>Ask satellite imagery a question.</h3>
+        <p class="hero-sub">Upload 1–2 rasters (or load a demo set). SatQuery AI runs an
+          <strong>auditable workflow</strong> — ingest → validate → route → execute → grounded
+          answer with visual proof. Every step lands in the execution trace.</p>
+        <div class="hero-cards">
+          <button class="hero-card" data-demo="single" title="Load the single-optical demo set">
+            <img src="/web/static/assets/overlay_ground.png" alt="grounding example" loading="lazy">
+            <span class="hc-body"><b>Grounding</b><i>“Highlight the water body referred to in the query.”</i></span>
+          </button>
+          <button class="hero-card" data-demo="bi_temporal" title="Load the bi-temporal demo pair">
+            <img src="/web/static/assets/overlay_change.png" alt="change detection example" loading="lazy">
+            <span class="hc-body"><b>Change detection</b><i>“What changed between these two dates, and where?”</i></span>
+          </button>
+          <button class="hero-card" data-demo="cross_modal" title="Load the optical + SAR demo pair">
+            <img src="/web/static/assets/overlay_caption.png" alt="water mask example" loading="lazy">
+            <span class="hc-body"><b>Optical + SAR</b><i>“Identify built-up and water-covered regions.”</i></span>
+          </button>
+        </div>
+        <div class="hero-flow">
+          <img src="/web/static/assets/fig_workflow.png" alt="end-to-end agentic workflow — every step logged to trace.json" loading="lazy">
+        </div>
       </div>
     </div>
     <div id="chips" class="chips">
@@ -65,13 +94,17 @@
 
   <!-- RIGHT: trace -->
   <section class="pane pane-right">
-    <h2>Execution trace <span class="muted" id="traceMeta"></span></h2>
+    <h2><span class="h-ico">🧾</span> Execution trace <span class="muted h2meta" id="traceMeta"></span></h2>
     <div id="tracePanel" class="trace">
-      <p class="muted">The observable trace is what is evaluated — every tool call, status and latency is recorded. No internal reasoning is stored.</p>
+      <div class="trace-empty">
+        <p><b>The observable trace is what is evaluated.</b></p>
+        <p class="muted">Every tool call, status and latency is recorded — no internal
+        reasoning is stored (PS P10). Run a query and the trace fills in live.</p>
+      </div>
     </div>
     <div class="trace-actions">
-      <button id="traceJson" class="btn tiny" disabled>Trace as JSON</button>
-      <button id="copyAnswer" class="btn tiny" disabled>Copy answer</button>
+      <button id="traceJson" class="btn tiny" disabled>⬇ Trace as JSON</button>
+      <button id="copyAnswer" class="btn tiny" disabled>⧉ Copy answer</button>
     </div>
   </section>
 </main>
@@ -79,21 +112,63 @@
 <!-- BOTTOM: image stage -->
 <section class="stage-bar">
   <div class="stage-head">
-    <strong>Image stage</strong>
-    <div id="layerToggles" class="layer-toggles"></div>
+    <strong class="stage-title">🛰 Image stage</strong>
     <div id="baseSwitch" class="base-switch"></div>
+    <div id="layerToggles" class="layer-toggles"></div>
   </div>
   <div class="stage" id="stage">
-    <div class="stage-empty muted">Upload imagery or load a demo set to view the image stage.</div>
+    <div class="stage-empty">
+      <div class="stage-empty-ico" aria-hidden="true">🛰</div>
+      <p><b>No imagery on stage yet.</b></p>
+      <p class="muted">Upload a GeoTIFF pair or load a demo set — base image and evidence
+      overlays (boxes · change map · masks · heatmaps) render here, side by side with the trace.</p>
+    </div>
   </div>
 </section>
+
+<!-- FOOTER: status + honesty line + SIH branding -->
+<footer class="statusbar">
+  <div class="status-live"><span class="dot-live"></span> orchestration live · RuleRouter · offline-ready</div>
+  <div class="status-mid">
+    <span class="honesty">Orchestration is <b>real</b> — ingestion, registry, routing &amp; trace run live.
+    Land-cover is <b>BIFOLD-pretrained</b>; change/grounding are <b>declared heuristics</b>, fine-tuned by 20 Sep.</span>
+  </div>
+  <img class="sih" src="/web/static/assets/sih_logo.png" alt="Smart India Hackathon 2026" title="Smart India Hackathon 2026 · PS 26167 (ISRO)">
+</footer>
 
 <!-- modal: registry -->
 <div id="modal" class="modal hidden">
   <div class="modal-card">
-    <h2>Tool registry <button id="modalClose" class="btn tiny right">close</button></h2>
-    <p class="muted">The agent may only call tools declared here (PS A2.2). <code>GET /api/v1/tools</code></p>
+    <h2>🧰 Tool registry <button id="modalClose" class="btn tiny right">✕ close</button></h2>
+    <p class="muted">The agent may only call tools declared here (PS A2.2/A2.3). <code>GET /api/v1/tools</code></p>
     <div id="toolsList"></div>
+  </div>
+</div>
+
+<!-- modal: architecture -->
+<div id="archModal" class="modal hidden">
+  <div class="modal-card wide">
+    <h2>🏗 System architecture <button id="archClose" class="btn tiny right">✕ close</button></h2>
+    <p class="muted">Sensor-agnostic 512&nbsp;px tiles / 64&nbsp;px overlap, end-to-end — user query in, grounded answer + audit out.</p>
+    <img class="arch-img" src="/web/static/assets/fig_arch.png" alt="SatQuery AI system architecture: users & inputs, frontend, agentic backend, intelligence layer">
+    <div class="arch-grid">
+      <div class="arch-cell">
+        <b>Agentic layer (real, live)</b>
+        <span>ingestion &amp; validation → <code>registry.yaml</code> → guardrail → deterministic RuleRouter → executor → integrator → SQLite trace store. No hosted generic LLM on the graded path (PS P12).</span>
+      </div>
+      <div class="arch-cell">
+        <b>Intelligence layer</b>
+        <span>M1 Qwen2-VL-2B QLoRA (VQA · caption · 2-image) · M4 BiT change · M3 Grounding-DINO-T · M7 UNet++ patch (BIFOLD S1+S2 init). M5 = M1 in 2-image mode; M6 cut.</span>
+      </div>
+      <div class="arch-cell">
+        <b>SAR is not RGB</b>
+        <span>dB backscatter, multiplicative speckle, polarisation — kept intact in a separate encoder path; co-registration verified before any fusion.</span>
+      </div>
+      <div class="arch-cell">
+        <b>What you can audit</b>
+        <span>Every request emits <code>trace.json</code> — task, tool names, key parameters, per-step latency, confidence. That is exactly what the evaluation inspects (PS P10).</span>
+      </div>
+    </div>
   </div>
 </div>
 

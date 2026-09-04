@@ -53,13 +53,21 @@ streamlit run app.py
 
 ### Web app features (vs design.md)
 
-3-pane layout (inventory · chat · trace) + image stage (design §2): upload 1–2
-rasters or load a curated demo set (single / bi-temporal / optical+SAR); answer
-cards carry task/trained/heuristic badges + confidence dots (§7); overlay layers
-rendered server-side with the §5 palette and visibility toggles (cyan bbox, red
-change mask, blue water mask, viridis heatmap); pair banner green/amber/red from
-the real co-registration offset; trace panel open with per-step latency and JSON
-export; one-click "Full walkthrough"; format rejection returns a fix card (S5).
+3-pane layout (inventory · chat · trace) + image stage (design §2) with SIH 2026
+branding (PS assets in `web/assets/` — SIH logo/bulb, workflow + architecture
+diagrams, feature examples; offline, no CDN): upload 1–2 rasters or load a
+curated demo set (single / bi-temporal / optical+SAR); the demo scenes are
+structured, spectral-consistent stand-ins (field blocks, reservoir, drainage,
+speckled dB SAR) and the demo pairs are co-registered by construction; the
+hero empty state doubles as a feature explainer (grounding / change / optical+SAR
+cards + workflow strip); answer cards carry task-coloured badges,
+TRAINED/HEURISTIC pills and a confidence meter (§7); overlay layers rendered
+server-side with the §5 palette and visibility toggles (cyan bbox, red change
+mask, blue water mask, viridis heatmap) with a base-image switcher for pairs;
+pair banner green/amber/red from the real co-registration offset; trace panel
+open as a timeline with per-step latency and JSON export; "Architecture" modal
+(full-system diagram + model triage); one-click "Full walkthrough"; format
+rejection returns a fix card (S5); footer carries the on-stage honesty line.
 
 ## Enabling the genuinely trained land-cover model
 

@@ -67,8 +67,11 @@ tx((16,164), "Demo sets:", R(12), MU); x = 90
 for cch in ["single optical","bi-temporal","optical+SAR"]:
     tw = tl(cch, R(11)); act = cch == "bi-temporal"
     rr((x,158,x+tw+18,180), BG3, AC if act else LINE, 11); tx((x+9,163), cch, R(11), FG); x += tw+26
-rr((16,192,344,222), (40,32,14), AMB, 6)
-tx((26,199), "! offset ~%.1f px - auto re-registration before fusion" % d["pair"]["offset_px"], R(11), (240,201,122))
+_pb = d["pair"]
+_pbfill, _pbcol = {"green": ((18,34,24), GRN), "amber": ((40,32,14), AMB), "red": ((50,22,22), RED)}[_pb["banner"]]
+_pbtxt, _pbfg = (_pb["message"], (142,226,159)) if _pb["banner"] == "green" else ("! " + _pb["message"], (240,201,122) if _pb["banner"] == "amber" else (245,154,150))
+rr((16,192,344,222), _pbfill, _pbcol, 6)
+tx((26,199), T(_pbtxt), R(11), _pbfg)
 y = 234
 for i, inv in enumerate(d["inventory"]):
     rr((16,y,344,y+186), BG2, LINE, 10)
@@ -85,8 +88,10 @@ for t, col in [(r["task"].upper(), AC), (r["tool"], MU), ("HEURISTIC" if not r["
 y = 156
 for ln in wrap(r["answer"], R(14), 590): tx((386,y), ln, R(14), FG); y += 22
 tx((386,y+8), "confidence", R(11), MU)
-for i in range(5): d_.ellipse((460+i*16,y+11,470+i*16,y+21), fill=AC if i < 2 else BG3, outline=LINE)
-tx((550,y+8), "low - heuristic tool, coregistration warning", R(11), MU)
+_conf = r["confidence"]
+_nconf = 2 if _conf is None else max(0, min(5, round(_conf * 5)))
+for i in range(5): d_.ellipse((460+i*16,y+11,470+i*16,y+21), fill=AC if i < _nconf else BG3, outline=LINE)
+tx((550,y+8), "n/a - declared heuristic tool" if _conf is None else "%.2f" % _conf, R(11), MU)
 tx((386,y+34), f"{r['elapsed_s']}s | {len(r['layers'])} layer: change map (heuristic) | trained: {str(r['trained']).lower()}", R(11), MU)
 for w in r["warnings"][:1]:
     ws_ = "! %s: %s" % (w["step"], w["message"][:34]); ww = tl(ws_, R(10)); rr((386,y+56,386+ww+16,y+76), (50,30,28), RED, 5); tx((394,y+60), ws_, R(10), (242,148,143))
@@ -100,12 +105,9 @@ rr((908,600,988,630), (10,142,163), AC, 8); tx((934,607), "Run", B(13), (4,22,26
 
 tx((1016,62), "EXECUTION TRACE", B(12), MU); tx((1150,63), f"query_id {r['trace']['query_id']} | {r['trace']['route']['planner']}", R(11), MU)
 y = 90; col = {"ok": GRN, "warning": AMB, "degraded": AMB, "error": RED}
-det = {"ingest": "2 rasters | optical | B02/B03/B04/B08 | EPSG:32633",
-       "coregistration": "shift (-3, 0) px -> auto-register before fusing",
-       "coreg_check": "compatible: false | banner amber",
-       "route": "change -> change_detect | kw: \"what changed\"",
-       "execute": "change_detect | heuristic NDVI d>0.25 | trained=false",
-       "integrate": f"answer + {len(r['layers'])} overlay layer | warnings: {len(r['warnings'])}"}
+det = {e["step"]: e["message"] for e in r["trace"]["events"]}
+det["ingest"] = "2 rasters | optical | B02/B03/B04/B08 | EPSG:32633"
+det["integrate"] = "answer + %d overlay layer | warnings: %d" % (len(r["layers"]), len(r["warnings"]))
 for e in r["trace"]["events"]:
     s = e["step"]; cc = col.get(e["status"], MU)
     rr((1016,y,1424,y+52), BG2, LINE, 8); d_.ellipse((1028,y+12,1038,y+22), fill=cc)

@@ -59,7 +59,10 @@ def base_preview(img: RasterImage, size: int = 512) -> Image.Image:
     rgb = np.dstack([r, g, b])
     pil = Image.fromarray((rgb * 255).astype(np.uint8), "RGB")
     if max(h, w) != size:
-        pil = pil.resize((size, size), Image.BILINEAR)
+        # NEAREST on upscale keeps the crisp "zoomed satellite pixel" look for
+        # small demo rasters; BILINEAR for downscaled real scenes (no aliasing).
+        pil = pil.resize((size, size),
+                         Image.NEAREST if max(h, w) < size else Image.BILINEAR)
     return pil
 
 
