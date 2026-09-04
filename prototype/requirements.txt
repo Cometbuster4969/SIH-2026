@@ -1,0 +1,12 @@
+# Core — ingestion, registry, routing, trace, tests run with just these.
+numpy>=1.24
+pyyaml>=6.0
+pydantic>=2.5
+rasterio>=1.3
+# Trained land-cover tool (optional; tool degrades honestly without these):
+#   torch torchvision configilm safetensors huggingface-hub pillow
+#   PLUS the reBEN model code:
+#   git clone https://git.tu-berlin.de/rsim/reben-training-scripts
+#   (provides the importable `reben_publication` package)
+# Weights download automatically via from_pretrained(...); pin v0.2.0 —
+# v0.1.1 band order is incompatible (asserted in satquery/ingestion.py).

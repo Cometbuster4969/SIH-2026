@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SatQuery AI — UI mockup (design preview)</title>
+<style>
+/* ============ SatQuery AI — self-contained UI mockup (no server needed) ============
+   Single-file, offline, no CDN/fonts (design §12). This is a static preview of the
+   interactive app at / ; every element here maps to a live component.          */
+:root{
+  --bg:#0e1116; --bg2:#161b22; --bg3:#1d242e; --line:#2a323d;
+  --fg:#e6edf3; --muted:#8b97a5; --accent:#00e5ff; --accent-dim:#0a8ea3;
+  --green:#3fb950; --amber:#d29922; --red:#e53935;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box} html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;
+  display:flex;flex-direction:column;overflow:hidden}
+
+.topbar{display:flex;align-items:center;gap:14px;padding:10px 16px;
+  background:var(--bg2);border-bottom:1px solid var(--line)}
+.brand{font-weight:700;font-size:16px;color:var(--accent)}
+.tag{color:var(--muted);font-size:12px}
+.topbar nav{margin-left:auto;display:flex;gap:8px}
+.btn{background:var(--bg3);color:var(--fg);border:1px solid var(--line);
+  border-radius:8px;padding:8px 14px;cursor:default;font-size:13px}
+.btn.accent{background:var(--accent-dim);border-color:var(--accent);color:#04161a;font-weight:700}
+.btn.ghost{background:transparent}
+
+.layout{display:grid;grid-template-columns:290px 1fr 360px;gap:1px;
+  background:var(--line);flex:1;min-height:0}
+.pane{background:var(--bg);padding:14px;overflow-y:auto;min-height:0}
+.pane h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 12px}
+
+.dropzone{display:flex;flex-direction:column;align-items:center;gap:8px;padding:22px;
+  border:1.5px dashed var(--line);border-radius:12px;text-align:center;color:var(--muted)}
+.dz-icon{font-size:26px;color:var(--accent)}
+.demo-row{margin:12px 0;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip{background:var(--bg3);border:1px solid var(--line);color:var(--fg);border-radius:16px;
+  padding:6px 12px;cursor:default;font-size:12px}
+.chip.small{padding:3px 9px;font-size:11px}
+.pair-banner{margin:10px 0;padding:9px 11px;border-radius:8px;font-size:12px;border:1px solid}
+.pair-banner.green{background:rgba(63,185,80,.12);border-color:var(--green);color:#7ee29a}
+.inventory{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.inv-card{background:var(--bg2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.inv-card svg{width:100%;height:110px;display:block;background:#000}
+.inv-meta{padding:8px 10px;font-size:12px}
+.inv-meta b{display:block} .inv-meta .muted{font-size:11px}
+
+.pane-mid{display:flex;flex-direction:column}
+.chat{flex:1;overflow-y:auto;padding:6px 4px;display:flex;flex-direction:column;gap:14px}
+.msg{max-width:90%;padding:11px 14px;border-radius:12px;line-height:1.5}
+.msg.user{align-self:flex-end;background:var(--accent-dim);color:#04161a;border-bottom-right-radius:3px;max-width:75%}
+.msg.sys{align-self:flex-start;background:var(--bg2);border:1px solid var(--line);border-bottom-left-radius:3px;width:100%}
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 2px;border-top:1px solid var(--line)}
+.ask{display:flex;gap:8px;padding:8px 2px}
+.ask .box{flex:1;background:var(--bg2);border:1px solid var(--line);border-radius:8px;
+  color:var(--muted);padding:10px 12px;font-size:14px}
+
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;
+  letter-spacing:.04em;margin-right:6px}
+.badge.task{background:var(--bg3);border:1px solid var(--accent);color:var(--accent)}
+.badge.trained{background:rgba(63,185,80,.18);color:#7ee29a;border:1px solid var(--green)}
+.badge.heuristic{background:rgba(210,153,34,.16);color:#f0c97a;border:1px solid var(--amber)}
+.badge.ok{color:#7ee29a}.badge.degraded{color:#f0c97a}
+.conf{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);margin-left:6px}
+.dots{letter-spacing:2px}
+.answer-text{margin:10px 0;font-size:15px}
+.facts{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.fact{background:var(--bg3);border:1px solid var(--line);border-radius:14px;padding:4px 10px;font-size:12px}
+.foot{margin-top:10px;color:var(--muted);font-size:12px}
+.warn{margin-top:8px;background:rgba(210,153,34,.1);border-left:3px solid var(--amber);
+  padding:7px 10px;border-radius:4px;font-size:12px;color:#f0c97a}
+
+.trace{display:flex;flex-direction:column;gap:6px}
+.trow{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px}
+.trow .step{display:flex;align-items:center;gap:8px}
+.trow .step b{font-family:var(--mono);font-weight:600}
+.trow .lat{margin-left:auto;color:var(--muted);font-family:var(--mono)}
+.trow .detail{margin-top:7px;padding-top:7px;border-top:1px dashed var(--line);
+  font-family:var(--mono);font-size:11px;color:var(--muted);white-space:pre-wrap}
+.trow.open .detail{display:block}
+.trow .detail{display:none}
+.trow.open .detail{display:block}
+.ic{width:8px;height:8px;border-radius:50%;flex:none}
+.ic.ok{background:var(--green)}.ic.warning{background:var(--amber)}.ic.degraded{background:var(--amber)}
+.trace-foot{margin-top:10px;font-size:12px;color:var(--muted)}
+.trace-actions{margin-top:8px;display:flex;gap:8px}
+
+.stage-bar{height:300px;border-top:1px solid var(--line);background:var(--bg2);
+  display:flex;flex-direction:column}
+.stage-head{display:flex;align-items:center;gap:14px;padding:8px 16px;border-bottom:1px solid var(--line);font-size:13px}
+.layer-toggles{display:flex;gap:12px;flex-wrap:wrap;margin-left:12px}
+.layer-toggles label{display:flex;align-items:center;gap:5px;font-size:12px}
+.swatch{width:11px;height:11px;border-radius:2px;display:inline-block}
+.stage{flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#05070a}
+.stage svg{height:262px}
+.stage .legend{position:absolute;left:16px;bottom:10px;font-size:11px;color:var(--muted);
+  background:rgba(14,17,22,.75);padding:6px 10px;border-radius:6px}
+.muted{color:var(--muted)}
+.banner-note{background:rgba(0,229,255,.07);border:1px solid var(--accent-dim);
+  color:#9adfe8;font-size:12px;padding:6px 12px;text-align:center}
+</style>
+</head>
+<body>
+
+<div class="banner-note">Static UI mockup — preview only. The live interactive app is served at <b>/</b> (same layout, real data).</div>
+
+<header class="topbar">
+  <div class="brand">🛰️ SatQuery&nbsp;AI</div>
+  <div class="tag">interactive multimodal remote-sensing assistant · PS 26167</div>
+  <nav>
+    <button class="btn ghost">▸ Demo data</button>
+    <button class="btn ghost">⏵ Full walkthrough</button>
+    <button class="btn ghost">Registry (8 tools)</button>
+    <button class="btn ghost">Reset</button>
+  </nav>
+</header>
+
+<main class="layout">
+  <!-- ============ LEFT : upload + inventory ============ -->
+  <section class="pane">
+    <h2>Upload &amp; inventory</h2>
+    <div class="dropzone">
+      <span class="dz-icon">＋</span>
+      <span>Add image(s)<br><small>1–2 rasters · GeoTIFF/PNG/JPG</small></span>
+    </div>
+    <div class="demo-row">
+      <span class="muted">Demo sets:</span>
+      <button class="chip small">single optical</button>
+      <button class="chip small" style="border-color:var(--accent)">bi-temporal pair</button>
+      <button class="chip small">optical + SAR</button>
+    </div>
+
+    <div class="pair-banner green">✓ bi-temporal pair — co-registration offset 0.4 px · Δt 1032 days</div>
+
+    <div class="inventory">
+      <div class="inv-card">
+        <svg viewBox="0 0 200 110" preserveAspectRatio="xMidYMid slice">
+          <rect width="200" height="110" fill="#15202b"/>
+          <rect x="0" y="0" width="200" height="70" fill="#274a30"/>
+          <rect x="20" y="55" width="70" height="45" fill="#3a5d42"/>
+          <rect x="120" y="10" width="60" height="40" fill="#4a5350"/>
+          <rect x="150" y="70" width="40" height="30" fill="#0d2f54"/>
+        </svg>
+        <div class="inv-meta"><b>t1_2018-05.tif</b>
+          <span class="muted">optical · Sentinel-2 like · 10 m<br>
+          512×512 px · bands B02,B03,B04,B08 · EPSG:32633</span></div>
+      </div>
+      <div class="inv-card">
+        <svg viewBox="0 0 200 110" preserveAspectRatio="xMidYMid slice">
+          <rect width="200" height="110" fill="#1a2430"/>
+          <rect x="0" y="0" width="200" height="55" fill="#2d5538"/>
+          <rect x="20" y="40" width="70" height="60" fill="#3f6647"/>
+          <rect x="115" y="12" width="70" height="52" fill="#6b6f6a"/>
+          <rect x="60" y="70" width="45" height="25" fill="#5a4a3e"/>
+          <rect x="150" y="72" width="40" height="28" fill="#0d2f54"/>
+        </svg>
+        <div class="inv-meta"><b>t2_2021-03.tif</b>
+          <span class="muted">optical · Sentinel-2 like · 10 m<br>
+          512×512 px · bands B02,B03,B04,B08 · EPSG:32633</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MIDDLE : chat ============ -->
+  <section class="pane pane-mid">
+    <div class="chat">
+      <div class="msg user">What changed between these two dates, and where?</div>
+
+      <div class="msg sys">
+        <div>
+          <span class="badge task">CHANGE</span>
+          <span class="badge heuristic">🟡 HEURISTIC (declared)</span>
+          <span class="badge degraded">degraded</span>
+          <span class="conf"><span class="dots" style="color:var(--amber)">●●●○</span> 0.82 Med</span>
+          <span class="conf">4.1 s · tool <code>change_detect</code> · RuleRouter fallback</span>
+        </div>
+        <div class="answer-text">
+          Between 2018-05 and 2021-03, <b>built-up grew ~8.1%</b>, mainly along the
+          northern road corridor; a small construction parcel appears in the
+          north-east. Vegetation index (NDVI) differencing flags ~12.4% of pixels
+          as changed (|ΔNDVI| &gt; 0.25). The trained BiT change model (M4) replaces
+          this heuristic for the 20 Sep submission.
+        </div>
+        <div class="facts">
+          <span class="fact">changed 12.4%</span>
+          <span class="fact">built-up +8.1%</span>
+          <span class="fact">Δt 1032 d</span>
+          <span class="fact">offset 0.4 px</span>
+        </div>
+        <div class="warn">⚠ Bi-temporal without guaranteed anniversary dates: vegetation/illumination difference can't be fully separated from land-cover change (confidence held at Med).</div>
+        <div class="foot">trace rendered in right panel · <span style="color:var(--accent)">Trace as JSON</span> · Download report (PDF)</div>
+      </div>
+
+      <div class="msg sys">
+        <div>
+          <span class="badge task">LANDCOVER</span>
+          <span class="badge trained">🟢 TRAINED MODEL</span>
+          <span class="badge ok">ok</span>
+          <span class="conf"><span class="dots" style="color:var(--green)">●●●●</span> 0.91 High</span>
+        </div>
+        <div class="answer-text">Land cover: <b>Arable land</b>, Pastures, Mixed forest — BIFOLD BigEarthNet v2.0 <code>resnet50-all</code> (19-class CLC, mAP 0.71).</div>
+        <div class="facts">
+          <span class="fact">Arable land 0.91</span>
+          <span class="fact">Pastures 0.74</span>
+          <span class="fact">Mixed forest 0.62</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="chips">
+      <button class="chip">What land cover types are here?</button>
+      <button class="chip">Is there a water body?</button>
+      <button class="chip">Locate the water body</button>
+      <button class="chip" style="border-color:var(--accent)">What changed between dates?</button>
+      <button class="chip">Cloudy — what does SAR show?</button>
+      <button class="chip">Describe this scene</button>
+    </div>
+    <div class="ask">
+      <div class="box">Ask about the imagery…</div>
+      <button class="btn accent">Run</button>
+    </div>
+  </section>
+
+  <!-- ============ RIGHT : trace ============ -->
+  <section class="pane">
+    <h2>Execution trace <span class="muted">· RuleRouter</span></h2>
+    <div class="trace">
+      <div class="trow">
+        <div class="step"><span class="ic ok"></span><b>ingest</b><span class="lat">0.2s</span></div>
+      </div>
+      <div class="trow">
+        <div class="step"><span class="ic ok"></span><b>coreg_check</b><span class="lat">0.3s</span></div>
+        <div class="detail">pair: bi_temporal · offset 0.40 px · banner green</div>
+      </div>
+      <div class="trow open">
+        <div class="step"><span class="ic ok"></span><b>route</b><span class="muted"> · change_detect</span><span class="lat">0.0s</span></div>
+        <div class="detail">task = change
+planner = RuleRouter (deterministic, PS P10)
+keyword: "changed between"
+fallback_used = true</div>
+      </div>
+      <div class="trow open">
+        <div class="step"><span class="ic degraded"></span><b>execute</b><span class="muted"> · change_detect</span><span class="lat">3.6s</span></div>
+        <div class="detail">tool: change_detect (NDVI diff heuristic — M4 pending)
+change_pct: 12.4   method: ndvi_diff   threshold: 0.25
+trained: false     status: degraded</div>
+      </div>
+      <div class="trow">
+        <div class="step"><span class="ic ok"></span><b>integrate</b><span class="lat">0.0s</span></div>
+      </div>
+    </div>
+    <div class="trace-foot">planner: RuleRouter · fallback: true · total 4.1 s · request <code>db087845</code></div>
+    <div class="trace-actions">
+      <button class="btn">Trace as JSON</button>
+      <button class="btn">Copy answer</button>
+    </div>
+    <p class="muted" style="font-size:11px;margin-top:12px">The observable execution trace is the graded artifact (PS P10). No internal reasoning is stored.</p>
+  </section>
+</main>
+
+<!-- ============ BOTTOM : image stage ============ -->
+<section class="stage-bar">
+  <div class="stage-head">
+    <strong>Image stage</strong>
+    <div class="layer-toggles">
+      <label><input type="checkbox" checked> <span class="swatch" style="background:#e53935"></span> change map</label>
+      <label><input type="checkbox" checked> <span class="swatch" style="background:#fdd835"></span> removed</label>
+      <label><input type="checkbox"> <span class="swatch" style="background:#00e5ff"></span> grounding box</label>
+      <label><input type="checkbox"> <span class="swatch" style="background:#8c50ff"></span> evidence heatmap</label>
+    </div>
+  </div>
+  <div class="stage">
+    <svg viewBox="0 0 512 262" width="512" height="262">
+      <!-- base: t2 optical-ish true colour -->
+      <rect width="512" height="262" fill="#1a2430"/>
+      <rect x="0" y="0" width="512" height="170" fill="#2d5538"/>
+      <rect x="60" y="150" width="180" height="112" fill="#3f6647"/>
+      <rect x="300" y="30" width="180" height="120" fill="#6b6f6a"/>
+      <rect x="300" y="30" width="180" height="120" fill="none" stroke="#000" stroke-opacity=".25"/>
+      <!-- road corridor -->
+      <rect x="280" y="0" width="14" height="262" fill="#555a56"/>
+      <!-- water -->
+      <rect x="380" y="180" width="100" height="70" fill="#0d2f54"/>
+
+      <!-- NEW construction (added) — red blobs in NE + along road -->
+      <g fill="#e53935" fill-opacity=".72">
+        <rect x="330" y="46" width="34" height="22"/>
+        <rect x="372" y="60" width="28" height="18"/>
+        <rect x="418" y="40" width="40" height="26"/>
+        <rect x="352" y="92" width="22" height="20"/>
+        <rect x="266" y="120" width="26" height="30"/>
+      </g>
+      <!-- REMOVED (vegetation loss) — yellow specks -->
+      <g fill="#fdd835" fill-opacity=".6">
+        <rect x="300" y="150" width="20" height="14"/>
+        <rect x="330" y="150" width="16" height="12"/>
+      </g>
+      <!-- grounding box (cyan) for "water body" -->
+      <rect x="380" y="180" width="100" height="70" fill="none" stroke="#00e5ff" stroke-width="3" stroke-opacity="0"/>
+      <rect x="380" y="180" width="100" height="70" fill="none" stroke="#00e5ff" stroke-width="0"/>
+    </svg>
+    <div class="legend">
+      <span class="swatch" style="background:#e53935"></span> new built-up (added) &nbsp;·&nbsp;
+      <span class="swatch" style="background:#fdd835"></span> removed &nbsp;·&nbsp;
+      <span class="swatch" style="background:#0d2f54"></span> water
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

@@ -1,2 +1,14 @@
+# Python
+.venv/
 __pycache__/
 *.pyc
+.pytest_cache/
+
+# Prototype runtime artifacts (see prototype/.gitignore for the full list)
+prototype/trace.db
+prototype/artifacts/
+prototype/data/demo/*.tif
+prototype/data/demo/*.tiff
+
+# OS/editor
+.DS_Store

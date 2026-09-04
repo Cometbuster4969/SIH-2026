@@ -32,6 +32,7 @@
 | 0.8 | Is a recorded video an accepted demo backup? | kill-switch plan | ☐ |
 | 0.9 | RSVQA + VRSBench exact splits — **the official PS Dataset Link text is itself truncated mid-sentence ("VRSBench — for")**. Links are incomplete in the source, not our copy. Use the papers' canonical splits and document the choice. | data prep | ◐ |
 | 0.10 | ~~BigEarthNet.txt layout/license~~ — **RESOLVED:** single `BigEarthNet.txt.parquet` (467 MB, 9.55M rows), license **CDLA-Permissive-1.0** (not CC-BY), `split` column carries train/val/test, official `ben_txt_datamodule.py` loader shipped in-repo. Remaining: check for released InternVL adapters. | M1 training | ◐ |
+| 0.11 | **BIFOLD-BigEarthNetv2-0 pretrained weights — 30 checkpoints** (10 architectures × S1-only / S2-only / S1+S2), HF org `BIFOLD-BigEarthNetv2-0`. Reference `resnet50-all-v0.2.0`: mAP macro **0.7107** / micro **0.8593**, 23.6 M params, safetensors. Four uses, zero GPU cost: (1) the S1/S2/S1+S2 trio **is** the optical/SAR/fused ablation with real numbers — panel unblocked for 5 Sep without training; (2) one genuinely trained 19-class land-cover tool in the Window A prototype; (3) RS-pretrained S1+S2 encoder init for M7 (replaces ImageNet init in the M7 row below); (4) co-registered dual-modality encoder already trained. **Constraints:** band order is version-critical — v0.2.0 = `[VV, VH, B02, B03, B04, B05, B06, B07, B08, B8A, B11, B12]`; v0.1.1 order differs and is incompatible (wrong order = confident garbage, no error) → pin v0.2.0 and assert order in ingestion. Patch-level multi-label, **not** segmentation. Not plain `AutoModel` — needs `pip install configilm` + the `reben_publication` model code from `git.tu-berlin.de/rsim/reben-training-scripts`. Trained at 120×120 px @ 10 m Sentinel; hidden set ~1 m Cartosat → C7 domain gap unchanged. **Compliance caution (PS A1.1):** third-party pretrained weights are a backbone, not adaptation *by us* — M1 LoRA stays the compliance artifact; state on the slide that these are an accelerator underneath our adaptation. **TODO: verify each weight repo's license before submission** (dataset is CDLA-Permissive-1.0; the 30 model repos are licensed separately and must be checked one by one). | ablation, prototype, M7 init | ◐ |
 
 ---
 
@@ -146,7 +147,7 @@ Per model: base weights ☐ · adapter/weights path ☐ · training config commi
 | M4 Change backbone | change_map | BiT (ViT-B) | QAG-360K + CDVQA + LEVIR-CD | CDVQA change-map IoU ≥ baseline (VisTA 17.7 mIoU ref) | ☐ |
 | M5 Change-VQA | change_vqa | M1 2-image | CDVQA + QAG-360K + ChangeChat-105k | CDVQA-test EM ≥ VisTA-text-level ref (62.5) | ☐ |
 | M6 Fusion | xmodal | dual ViT + Q-Former | BE.txt S1–S2–text + TAMMI | BE.txt bench-split avg ≥ best single-modality; TAMMI VQA +≥5 vs optical-only | ☐ |
-| M7 Dual UNet++ | xmodal_mask | ImageNet-init encoder | BE v2 **pixel-level reference maps** (CLC2018) + S1/S2 | built-up/water **mIoU ≥ 0.60 pass / ≥ 0.70 good** (the old ≥0.80 gate was unjustified; report per-class IoU — see arch §7.2) | ☐ |
+| M7 Dual UNet++ | xmodal_mask | **BIFOLD `resnet50-all-v0.2.0` S1+S2 encoder init** (was ImageNet; see 0.11) | BE v2 **pixel-level reference maps** (CLC2018) + S1/S2 | built-up/water **mIoU ≥ 0.60 pass / ≥ 0.70 good** (the old ≥0.80 gate was unjustified; report per-class IoU — see arch §7.2) | ☐ |
 
 - ☐ M1: confirm whether BE.txt authors released InternVL adapter/code — if yes, rerun gate with InternVL2.5-2B and pick winner
 - ☐ All adapters recorded with SHA-256 in `models/MODEL_CARDS.md`
@@ -156,28 +157,29 @@ Per model: base weights ☐ · adapter/weights path ☐ · training config commi
 ## D. System checkpoints
 
 **Ingestion**
-- ☐ Unit tests: every supported format; modality detector ≥98 % on 50-image test set
-- ☐ Coreg offset: synthetic shift 0/1/3/8 px → detected & (auto) re-registered correctly
-- ☐ Tiling round-trip: stitched mask == original (pixel-exact), bbox geo-mapping exact
-- ☐ PNG/JPEG allow-list gate (benchmark dirs pass, others reject with `E_FORMAT`)
+- ☑ Ingestion scaffolded + unit-tested in `prototype/` (4 Sep): rasterio load, format allow-list (`E_FORMAT`), modality detector, **v0.2.0 band-order hard assertion**, tiling pixel-exact coverage test, synthetic coreg shift detection test. Remaining: modality detector ≥98 % on the 50-image real test set; auto re-registration (currently detects + warns).
+- ☑ Coreg offset detection: synthetic 0/6 px shift test passes (`test_ingestion.py`); auto-register action pending
+- ☑ Tiling round-trip: pixel-exact coverage asserted in tests (no-overlap case)
+- ☑ PNG/JPEG/TIFF allow-list gate implemented in `ingestion.load_raster`
 
 **Agent**
-- ☐ Registry: 9 tools + schemas + examples; `GET /tools` matches `registry.yaml`
-- ☐ Planner suite: 200 queries (40/task incl. multi-step & invalid) → accuracy + schema-validity logged
-- ☐ Guardrail: 50 crafted invalid plans all rejected
-- ☐ Fallback router: same 200 queries → 100 % coverage, `fallback_used` recorded
-- ☐ Executor: per-step timeout 30 s + 1 retry; one tool killed ⇒ graceful degraded answer + flag
-- ☐ Param whitelist enforced (PS A2.4) — attempt out-of-whitelist param in test
+- ☑ Registry: **8 tools** + schemas + examples in `prototype/config/registry.yaml`; `GET /tools` serves it; tested (`test_registry.py`). (M5 = M1 2-image mode, not a 9th tool.)
+- ☐ Planner suite: 200 queries (40/task incl. multi-step & invalid) → accuracy + schema-validity logged — RuleRouter keyword suite exists; expand to 200
+- ◐ Guardrail: empty/over-long query + format rejection live; 50 crafted invalid plans suite pending
+- ☑ Fallback router: RuleRouter covers all tasks with 100 % routing (unmatched → VQA baseline) + modality gating diverts xmodal/change safely; `fallback_used` recorded in every trace
+- ◐ Executor: tool exceptions ⇒ graceful degraded answer (tested); per-step 30 s timeout + 1 retry pending
+- ☑ Param whitelist enforced (PS A2.4) — orchestrator strips non-schema params
 
 **Trace & report**
 - ☐ Every DONE request ⇒ complete trace (A2.6 fields) + `trace.json` + PDF ≤3 MB
 - ☐ PDF contains: query, metadata, answer+confidence, overlays, auditable step table, model versions
 
-**Frontend**
-- ☐ All overlay layer types render (bbox/masks/heatmap/annotations) with legend + toggles
-- ☐ Trace panel (expandable rows, JSON export), metadata cards, pair banner (green/amber/red)
-- ☐ Demo mode: sample data + 5 query chips + "Run full walkthrough"
-- ☐ Edge-case cards per design.md §11 (8 cases)
+**Frontend** (interactive web app built 4 Sep: `prototype/web/` + `satquery/web_server.py`; 8 web tests pass, runs `uvicorn satquery.web_server:app`)
+- ◐ Overlay layers render server-side (design §5 colors): **bbox (cyan), change mask (red/yellow), water/built-up mask (blue/orange), NDVI heatmap (viridis)** with legend + visibility toggles. Remaining: annotations layer + geo lat/lon tooltip + stage PNG export for the report.
+- ☑ Trace panel — expandable step rows, per-step latency, "Trace as JSON" export; inventory cards; pair banner green/amber/red (auto co-reg offset → amber).
+- ☑ Demo mode — 3 curated sets (single / bi-temporal / optical+SAR), 6 query chips, one-click **"Full walkthrough"** (runs all queries in sequence).
+- ☑ Offline, no CDN/fonts — plain HTML/CSS/vanilla JS, dark + cyan (design §12), 3-pane + image stage layout (design §2).
+- ◐ Edge-case cards per design.md §11: E_FORMAT rejection with fix copy live; coreg-offset amber banner live; abstention/status badges live. Remaining: >10k-px tiling notice, missing-dates direction caveat, cloud flag, change-below-threshold copy.
 
 **Deployment**
 - ☐ `docker compose up` cold start <10 min; `/warmup` loads all weights
@@ -246,7 +248,7 @@ Per model: base weights ☐ · adapter/weights path ☐ · training config commi
 - ☐ REAL: `registry.yaml` + `GET /tools`
 - ☐ REAL: **RuleRouter only** (canonical table, arch §6) — *skip the LLM planner entirely*
 - ☐ REAL: SQLite trace store + trace panel
-- ☐ REAL: Streamlit/Gradio UI — upload, answer card, overlay toggles, trace open by default
+- ☑ REAL: interactive **web app** (FastAPI `/api/v1` + static `web/` UI, not Streamlit) — upload/inventory, answer card with TRAINED/HEURISTIC badges + confidence dots, overlay toggles on an image stage, trace panel open; Streamlit retained as an internal alt UI
 - ☐ HEURISTIC (declare it): change mask via NDVI/NDBI delta + threshold; precomputed
       grounding boxes on 3–5 demo scenes; canned confidence
 - ☐ Cached-answer **kill switch** — non-negotiable
