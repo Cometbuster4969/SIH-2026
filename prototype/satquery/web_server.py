@@ -70,28 +70,177 @@ _ORCH = Orchestrator(trace_store=TraceStore(ROOT / "web_data" / "trace.db"),
 
 
 # --- synthetic demo scenes (spectral-consistent, like scripts/make_demo...) --
+#
+# Structured (not pure noise) so the stage looks like real 10 m optical / SAR:
+# field blocks, a reservoir, a drainage channel, speckled dB backscatter.
+# Geometry is frozen on purpose — the kill-switch cache (config/demo_cache.json)
+# and the demo grounding box reference these coordinates:
+#   reservoir  ~ rows 80:110, cols 60:95  (south-east lobe)
+#   new built-up (t2 only) ~ rows 20:50, cols 64:94  (north-east quadrant)
 
-def _synth_optical(kind: str, seed: int, size: int = 120):
+def _vnoise(rng, h: int, w: int, cell: int) -> np.ndarray:
+    """Smooth low-frequency value noise in [0, 1]."""
+    gh, gw = max(2, h // cell + 2), max(2, w // cell + 2)
+    g = rng.random((gh, gw)).astype(np.float32)
+    ys = np.linspace(0, gh - 1, h); xs = np.linspace(0, gw - 1, w)
+    y0 = np.floor(ys).astype(int); y1 = np.clip(y0 + 1, 0, gh - 1)
+    x0 = np.floor(xs).astype(int); x1 = np.clip(x0 + 1, 0, gw - 1)
+    wy = (ys - y0)[:, None]; wx = (xs - x0)[None, :]
+    top = g[y0][:, x0] * (1 - wx) + g[y0][:, x1] * wx
+    bot = g[y1][:, x0] * (1 - wx) + g[y1][:, x1] * wx
+    return top * (1 - wy) + bot * wy
+
+
+def _reservoir_mask(h: int, w: int) -> np.ndarray:
+    yy, xx = np.mgrid[0:h, 0:w]
+    return ((yy - 95.0) / 15.0) ** 2 + ((xx - 77.0) / 17.0) ** 2 <= 1.0
+
+
+def _drainage_mask(h: int, w: int, seed: int) -> np.ndarray:
+    """Meandering ~2 px channel from the top-left towards the reservoir."""
     rng = np.random.default_rng(seed)
-    bands = ["B02", "B03", "B04", "B08"]
-    arr = rng.uniform(0.05, 0.2, (4, size, size)).astype(np.float32)
-    arr[3] = rng.uniform(0.35, 0.6, (size, size)).astype(np.float32)   # NIR veg
-    if kind == "rural":
-        arr[3, 80:110, 60:95] = 0.02      # water
-        arr[2, 80:110, 60:95] = 0.03
-    else:  # urban fringe
-        arr[3, 20:60, 20:70] = 0.12       # built-up
-        arr[2, 20:60, 20:70] = 0.22
-    return from_array(arr, bands, crs="EPSG:32633"), "optical", f"{kind} (Sentinel-2 like, 10 m)"
+    xx = np.arange(w)
+    path = 12.0 + 80.0 * (xx / max(w - 1, 1)) ** 1.25 \
+        + 3.0 * np.sin(xx * 0.09 + rng.random() * 6.0)
+    yy, xxg = np.mgrid[0:h, 0:w]
+    m = np.abs(yy - path[None, :]) <= 0.9
+    m[88:94, 58:64] = True          # tie the channel into the reservoir rim
+    return m
 
 
-def _synth_sar(seed: int, size: int = 120):
+def _smooth5(a: np.ndarray) -> np.ndarray:
+    """5-point box average (centre + 4-neighbours) — softens per-pixel speckle."""
+    p = np.pad(a, 1, mode="edge")
+    return (p[:-2, 1:-1] + p[1:-1, :-2] + p[1:-1, 1:-1] + p[1:-1, 2:] + p[2:, 1:-1]) / 5.0
+
+
+def _smooth9(a: np.ndarray) -> np.ndarray:
+    """3x3 box average."""
+    p = np.pad(a, 1, mode="edge")
+    s = np.zeros_like(a)
+    for dy in range(3):
+        for dx in range(3):
+            s += p[dy:dy + a.shape[0], dx:dx + a.shape[1]]
+    return s / 9.0
+
+
+def _field_blocks(seed: int, h: int, w: int):
+    """Shared field-block geometry (ids per pixel) for the optical and SAR
+    stand-ins — the pair is co-registered BY CONSTRUCTION, and the SAR gets its
+    per-block backscatter variation from the same layout (surface type drives
+    both reflectance and dB)."""
+    rng = np.random.default_rng(seed * 1000 + 1)
+    def _splits(n, lo, hi):
+        edges = [0]
+        while edges[-1] < n:
+            edges.append(min(n, edges[-1] + int(rng.integers(lo, hi))))
+        return edges
+    er, ec = _splits(h, 12, 26), _splits(w, 12, 26)
+    ids = np.zeros((h, w), dtype=np.int32)
+    k = 0
+    for i in range(len(er) - 1):
+        for j in range(len(ec) - 1):
+            ids[er[i]:er[i + 1], ec[j]:ec[j + 1]] = k
+            k += 1
+    return er, ec, ids
+
+
+def _rural_scene(seed: int, size: int = 120):
+    """Sentinel-2-like rural scene: field blocks + texture + water bodies."""
     rng = np.random.default_rng(seed)
-    vv = rng.normal(-12, 2.5, (size, size)).astype(np.float32)
-    vh = rng.normal(-18, 2.5, (size, size)).astype(np.float32)
-    vv[80:110, 60:95] = -22      # specular water
-    vh[80:110, 60:95] = -27
-    return from_array(np.stack([vv, vh]), ["VV", "VH"], crs="EPSG:32633"), "sar", "Sentinel-1 like, VV/VH dB"
+    h = w = size
+    bands = np.zeros((4, h, w), dtype=np.float32)
+    B02, B03, B04, B08 = (b.copy() for b in bands)
+    er, ec, ids = _field_blocks(seed, h, w)
+    nblk = int(ids.max()) + 1
+    kind = rng.random(nblk)
+    nir = np.where(kind < 0.55, rng.uniform(0.44, 0.56, nblk),
+           np.where(kind < 0.82, rng.uniform(0.38, 0.46, nblk),
+                    rng.uniform(0.26, 0.30, nblk)))
+    red = np.where(kind < 0.55, rng.uniform(0.11, 0.16, nblk),
+           np.where(kind < 0.82, rng.uniform(0.16, 0.21, nblk),
+                    rng.uniform(0.23, 0.27, nblk)))
+    gmul = rng.uniform(0.75, 1.0, nblk); bmul = rng.uniform(0.4, 0.62, nblk)
+    B08[:] = nir[ids]; B04[:] = red[ids]
+    B03[:] = red[ids] * gmul[ids]; B02[:] = red[ids] * bmul[ids]
+    ys = er[1:-1] + [h - 1]                        # field boundaries read dark
+    xs = ec[1:-1] + [w - 1]
+    for y in ys:
+        B08[y, :] *= 0.62; B04[y, :] *= 0.72; B03[y, :] *= 0.78; B02[y, :] *= 0.72
+    for x in xs:
+        B08[:, x] *= 0.62; B04[:, x] *= 0.72; B03[:, x] *= 0.78; B02[:, x] *= 0.72
+
+    for band, amp in ((B02, 0.006), (B03, 0.008), (B04, 0.010), (B08, 0.020)):
+        band += (rng.random((h, w)) - 0.5) * 2 * amp
+        band += (_vnoise(rng, h, w, 6) - 0.5) * 4 * amp
+
+    water = _reservoir_mask(h, w) | _drainage_mask(h, w, seed)
+    # Clear water: dark, but blue-dominant (reads blue, not black, after
+    # per-band percentile normalization in the preview).
+    B08[water] = 0.024; B04[water] = 0.032; B03[water] = 0.05; B02[water] = 0.082
+    for band in (B02, B03, B04, B08):
+        np.clip(band, 0.0, 1.0, out=band)
+    return from_array(np.stack([B02, B03, B04, B08]),
+                      ["B02", "B03", "B04", "B08"], crs="EPSG:32633")
+
+
+def _add_builtup(img, seed: int, y0: int = 20, y1: int = 50, x0: int = 64, x1: int = 94):
+    """t2 scene: new built-up footprint in the north-east quadrant + roads."""
+    rng = np.random.default_rng(seed)
+    arr = img.array.copy()
+    B02, B03, B04, B08 = (b.copy() for b in arr)
+    B08[y0:y1, x0:x1] = rng.uniform(0.10, 0.14, (y1 - y0, x1 - x0)).astype(np.float32)
+    B04[y0:y1, x0:x1] = rng.uniform(0.19, 0.25, (y1 - y0, x1 - x0)).astype(np.float32)
+    B03[y0:y1, x0:x1] = B04[y0:y1, x0:x1] * 0.85
+    B02[y0:y1, x0:x1] = B04[y0:y1, x0:x1] * 0.75
+    for by in range(y0, y1, 10):                       # building blocks
+        for bx in range(x0, x1, 10):
+            f = rng.uniform(0.88, 1.14)
+            B08[by:by + 10, bx:bx + 10] = np.clip(B08[by:by + 10, bx:bx + 10] * f, 0.09, 0.16)
+            B04[by:by + 10, bx:bx + 10] = np.clip(B04[by:by + 10, bx:bx + 10] * f, 0.17, 0.28)
+    for yy in (y0 + 9, y0 + 21):                       # access roads
+        B08[yy:yy + 2, x0:x1] = 0.05; B04[yy:yy + 2, x0:x1] = 0.07
+        B03[yy:yy + 2, x0:x1] = 0.06; B02[yy:yy + 2, x0:x1] = 0.05
+    for xx in (x0 + 9, x0 + 21):
+        B08[y0:y1, xx:xx + 2] = 0.05; B04[y0:y1, xx:xx + 2] = 0.07
+        B03[y0:y1, xx:xx + 2] = 0.06; B02[y0:y1, xx:xx + 2] = 0.05
+    return from_array(np.stack([B02, B03, B04, B08]), img.bands, crs=img.crs)
+
+
+def _add_cloud(img, seed: int, width: int = 52):
+    """Puffy cloud deck over the western third (matches the cached cross-modal
+    answer). Two noise scales -> lobes; east edge fades out smoothly."""
+    rng = np.random.default_rng(seed)
+    h, w = img.array.shape[1:]
+    v1 = _vnoise(rng, h, w, 16)                        # lobe scale
+    v2 = _vnoise(rng, h, w, 5)                         # bump scale
+    body = np.clip(0.62 * v1 + 0.38 * v2 - 0.30, 0, 1) ** 1.5
+    col = np.clip((width - np.arange(w)) / width, 0, 1.0)[None, :]
+    op = np.clip(body * (0.30 + 0.70 * col), 0, 1).astype(np.float32)
+    arr = np.stack([b * (1 - op) + 0.62 * op for b in img.array])
+    return from_array(arr, img.bands, crs=img.crs)
+
+
+def _sar_scene(seed: int, size: int = 120):
+    """Sentinel-1-like dB backscatter: smooth terrain, per-field variation
+    (same block geometry as the optical stand-in), speckle, dark water."""
+    rng = np.random.default_rng(seed)
+    h = w = size
+    _, _, ids = _field_blocks(seed, h, w)
+    nblk = int(ids.max()) + 1
+    base = -10.5 + 3.0 * (_vnoise(rng, h, w, 7) - 0.5)
+    base = base + rng.normal(0.0, 1.1, nblk)[ids]     # surface type -> dB
+    base[_reservoir_mask(h, w)] = -21.0
+    # Wet, smooth channel = specular dark (same sign as in optical — keeps the
+    # co-registration cross-correlation honest for the A3.3 demo pair).
+    base[_drainage_mask(h, w, seed)] = -18.0
+    # Multiplicative speckle, softened to ~1 resolution cell so it reads as
+    # SAR texture at 4x upscale instead of TV static.
+    speck = _smooth9(_smooth9(np.exp(rng.normal(0.0, 0.5, (h, w))).astype(np.float32)))
+    speck = speck / speck.mean()
+    vv = (base * speck).astype(np.float32)
+    vh = (base - 6.0 + rng.normal(0.0, 0.8, (h, w)) * _smooth9(speck)).astype(np.float32)
+    return from_array(np.stack([vv, vh]), ["VV", "VH"], crs="EPSG:32633")
 
 
 def _add_image(sess: Session, img, label: str, name: str):
@@ -132,6 +281,27 @@ def _pair_check(sess: Session) -> dict:
     return pair
 
 
+def _demo_change_layers(sess: Session, stem: str) -> list:
+    """Declared-heuristic change map for the cached (kill-switch) demo answer."""
+    try:
+        from .ingestion import ndvi
+        from .webapp import COLOR_CHANGE_ADDED, mask_overlay
+        a, b = sess.images[0], sess.images[1]
+        if a.array.shape[1:] != b.array.shape[1:]:
+            return []
+        m = (np.abs(ndvi(a) - ndvi(b)) > 0.25).astype(np.uint8)
+        if not m.any():
+            return []
+        p = sess.art / f"{stem}_change.png"
+        mask_overlay(m, COLOR_CHANGE_ADDED).save(p)
+        return [{"name": "change map (heuristic)", "kind": "mask",
+                 "url": f"/web/sessions/{sess.id}/artifacts/{p.name}",
+                 "color": "#E53935",
+                 "legend": "changed pixels (NDVI/NDBI Δ>0.25)"}]
+    except Exception:
+        return []
+
+
 # --- app ---------------------------------------------------------------------
 
 if _FASTAPI:
@@ -164,17 +334,18 @@ if _FASTAPI:
         sess = Session(sid)
         _SESSIONS[sid] = sess
         if set == "cross_modal":
-            _add_image(sess, _synth_optical("rural", 7)[0],
-                       "optical · rural · cloudy west", "demo_optical.tif")
-            _add_image(sess, _synth_sar(7)[0], "SAR · VV/VH", "demo_sar.tif")
+            _add_image(sess, _add_cloud(_rural_scene(7), 31),
+                       "optical · rural · cloud over west", "demo_optical.tif")
+            _add_image(sess, _sar_scene(7),
+                       "SAR · VV/VH · drainage channel", "demo_sar.tif")
         elif set == "single":
-            _add_image(sess, _synth_optical("rural", 7)[0],
-                       "optical · rural + water", "demo_optical.tif")
-        else:  # bi_temporal
-            a, *_ = _synth_optical("rural", 7)
-            b, *_ = _synth_optical("urban", 11)
-            _add_image(sess, a, "t1 · 2018-05 · optical", "demo_t1.tif")
-            _add_image(sess, b, "t2 · 2021-03 · optical", "demo_t2.tif")
+            _add_image(sess, _rural_scene(7),
+                       "optical · rural + reservoir", "demo_optical.tif")
+        else:  # bi_temporal — co-registered; t2 adds the NE built-up footprint
+            _add_image(sess, _rural_scene(7),
+                       "t1 · 2018-05 · optical", "demo_t1.tif")
+            _add_image(sess, _add_builtup(_rural_scene(7), 21),
+                       "t2 · 2021-03 · optical", "demo_t2.tif")
         return {"request_id": sid, "inventory": sess.inventory,
                 "pair": _pair_check(sess), "demo": True}
 
@@ -234,6 +405,11 @@ if _FASTAPI:
         if sess.images and resp.result is not None:
             layers = render_result_layers(sess.images[0], resp.result,
                                           sess.art, f"q{sess.id[:6]}")
+        # The kill-switch (cached) change answer ships no mask artifact — render
+        # the evidence from the pair itself so the stage always shows it.
+        if not layers and is_demo and len(sess.images) >= 2 \
+                and resp.task is not None and resp.task.value == "change":
+            layers = _demo_change_layers(sess, f"q{sid[:6]}")
         trace = resp.trace.model_dump(mode="json")
         return {
             "request_id": sid,

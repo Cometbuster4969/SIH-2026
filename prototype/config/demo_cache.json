@@ -39,17 +39,17 @@
   },
   "change": {
     "demo_pair_01": {
-      "answer": "Heuristic NDVI differencing on the cached demo pair: ~6.4% of pixels changed \u2014 new built-up footprint in the north-east quadrant. (Trained BiT M4 replaces this for 20 Sep.)",
+      "answer": "Heuristic NDVI differencing on the cached demo pair: ~6.3% of pixels changed \u2014 new built-up footprint in the north-east quadrant. (Trained BiT M4 replaces this for 20 Sep.)",
       "confidence": null,
       "extra": {
-        "change_pct": 6.4,
+        "change_pct": 6.3,
         "method": "ndvi_diff"
       }
     }
   },
   "vqa": {
     "demo_scene_01": {
-      "answer": "Yes \u2014 the cached demo scene contains a water body (reservoir, south-west).",
+      "answer": "Yes \u2014 the cached demo scene contains a water body (reservoir, south-east lobe).",
       "confidence": 0.9
     }
   },
@@ -61,7 +61,7 @@
   },
   "xmodal_mask": {
     "demo_pair_sar_opt_01": {
-      "answer": "Heuristic water mask on the cached pair: ~4.8% of pixels (drainage channel + reservoir). M7 dual UNet++ replaces this for 20 Sep.",
+      "answer": "Heuristic water mask on the cached pair: ~7.0% of pixels (drainage channel + reservoir). M7 dual UNet++ replaces this for 20 Sep.",
       "confidence": null
     }
   },
@@ -73,12 +73,12 @@
   },
   "ground_object": {
     "demo_scene_01": {
-      "answer": "Heuristic location for 'the water body': box [96, 140, 156, 200] (pixel coords). Grounding-DINO-T (M3) replaces this in Window B.",
+      "answer": "Heuristic location for 'the water body': box [60, 80, 95, 110] (pixel coords). Grounding-DINO-T (M3) replaces this in Window B.",
       "bbox": [
-        96,
-        140,
-        156,
-        200
+        60,
+        80,
+        95,
+        110
       ]
     }
   }
