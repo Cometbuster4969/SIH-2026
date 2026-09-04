@@ -1,12 +1,15 @@
+# Web app + tests. `pip install -r requirements-serve.txt` then
+# `uvicorn satquery.web_server:app --host 0.0.0.0 --port 8000` and `pytest`
+# both work first try. Pinned to versions verified together on 4 Sep 2026.
 -r requirements.txt
-fastapi>=0.110
-uvicorn>=0.29
-streamlit>=1.33
-pillow>=10.0
-python-multipart>=0.0.9
-httpx>=0.27
-# GPU inference (4050 laptop; CPU works via --device cpu path):
-# torch torchvision --index-url https://download.pytorch.org/whl/cu121
-configilm>=0.7
-safetensors
-huggingface-hub
+fastapi==0.141.1
+uvicorn==0.52.4
+starlette==1.6.0
+pillow==12.3.0
+python-multipart==0.0.32
+httpx==0.28.1            # required by starlette TestClient (tests/test_web_app.py)
+pytest==9.1.1
+# Optional Streamlit UI (internal only):  pip install "streamlit>=1.33"
+# Optional trained land-cover tool (see README "Enabling the genuinely trained model"):
+#   torch torchvision --index-url https://download.pytorch.org/whl/cu121
+#   configilm>=0.7 safetensors huggingface-hub
