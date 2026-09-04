@@ -16,12 +16,16 @@ from .registry import tool_for_task
 from .schemas import Modality, RoutePlan, TaskType
 
 # Ordered rules: (task, keyword regexes). First match wins; order matters —
-# change_vqa/change must be tested before bare vqa, xmodal_mask before xmodal.
+# change_vqa/change must be tested before bare vqa, xmodal_mask before xmodal,
+# caption before landcover (PS query 1 "Describe the land-cover ..." is a caption).
 _RULES: list[tuple[TaskType, list[str]]] = [
     (TaskType.CHANGE_VQA, [
         r"\b(changed?|change|changes)\b.*\b(build|construct|urban|grown?|destroy|flood|new)\b",
         r"\b(build|construct|grown?|destroy|flood)\b.*\b(between|over time|since|before|after)\b",
         r"\bwas there\b.*\b(between|before|after|over)\b",
+        # PS query 5: "Has the built-up area increased, decreased, or remained unchanged?"
+        r"\b(increas|decreas|expand|shrink|grow|reduc)\w*\b",
+        r"\bremain\w*\s+(unchanged|the same)\b",
     ]),
     (TaskType.CHANGE, [
         r"\bwhat changed\b", r"\bchange detection\b", r"\bdetect change\b",
@@ -43,14 +47,14 @@ _RULES: list[tuple[TaskType, list[str]]] = [
         r"\bbox\b", r"\bground\b", r"\bfind the\b", r"\bhighlight the\b",
         r"\bpoint to\b", r"\bmark the\b",
     ]),
+    (TaskType.CAPTION, [
+        r"\bdescribe\b", r"\bcaption\b", r"\bsummary\b", r"\bsummari[sz]e\b",
+        r"\bwhat (do|does) (this|the) (image|scene) show\b", r"\boverview\b",
+    ]),
     (TaskType.LANDCOVER, [
         r"\bland[ -]?cover\b", r"\bland use\b", r"\bclassif\w+\b",
         r"\b(what|which) (kind|type|class) of (land|area|terrain|surface)\b",
         r"\bagricultur\w*|urban|forest\b.*\b(area|land|region)\b",
-    ]),
-    (TaskType.CAPTION, [
-        r"\bdescribe\b", r"\bcaption\b", r"\bsummary\b", r"\bsummari[sz]e\b",
-        r"\bwhat (do|does) (this|the) (image|scene) show\b", r"\boverview\b",
     ]),
     (TaskType.VQA, [
         r"\?",  # any remaining question -> mandatory single-image baseline

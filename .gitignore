@@ -12,3 +12,7 @@ prototype/data/demo/*.tiff
 
 # OS/editor
 .DS_Store
+
+# Session exports / large binaries — keep in cloud storage, not Git
+workspace-*.zip
+*.zip
